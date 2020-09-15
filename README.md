@@ -1,10 +1,10 @@
 # Arglet: A Declarative Argument-Parsing Library
 Arglet is a header-only argument-parsing library written for C++, and it's designed with the goal of allowing you to write parsers that are 
-- Simple;
-- Visual;
-- And Composable.
+- Simple,
+- Readable,
+- and Composable
 
-This means that parsers should be easy to write; the visual structure of the parser should reflect it's syntax; and you can build bigger parsers out of smaller parsers.
+This means that parsers should be easy to write; the structure of the parser should reflect it's syntax; and you can build bigger parsers out of smaller parsers.
 ## Hello Arglet: A simple example program
 Let's look at a simple parser for a program that will either print hello or goodbye:
 ```cpp
@@ -12,23 +12,26 @@ Let's look at a simple parser for a program that will either print hello or good
 #include <iostream>
 #include <arglet/arglet.hpp>
 
+namespace tags {
+    struct tag1 {} hello_tag;
+    struct tag2 {} goodbye_tag;
+}
+
 int main(int argc, char const** argv) {
     using namespace arglet;
-    auto hello_tag = []{};
-    auto goodbye_tag = []{};
 
     auto parser = sequence{
         ignore_arg, // We can ignore argv[0]
         flag_set{
-            flag{hello_tag, 'h', "--hello"},
-            flag{goodbye_tag, 'g', "--goodbye"}}};
+            flag{tags::hello_tag, 'h', "--hello"},
+            flag{tags::goodbye_tag, 'g', "--goodbye"}}};
 
     parser.parse(argc, argv);
 
-    if(parser[hello_tag]) {
+    if(parser[tags::hello_tag]) {
         std::cout << "Hello!" << std::endl;
     }
-    if(parser[goodbye_tag]) {
+    if(parser[tags::goodbye_tag]) {
         std::cout << "Goodbye!" << std::endl;
     }
 }
@@ -57,8 +60,23 @@ We use the following parsers in this program:
 - `flag_set`, which takes a list of flag parsers as arguments and parses them independent of the order in which they're entered, and
 - `flag`, which takes a tag, and a shorthand name or a longhand name (or both). `flag` contains a boolean flag, which it sets to true if the parser encounters the flag.
 ### Getting information out of the parser
-We can get information about what was parsed by calling `parser.operator[]` with the corresponding tag. 
+We can get information about what was parsed by calling `parser.operator[]` with the corresponding *tag*. Here, a *tag* is an instance of a stateless type that we use to pass information. There's an overload of `parser.operator[]` for each tag used in constructing `parser`, and the value `parser.operator[]` returns is taken from the flag (or other simple parser) used in constructing `parser`. 
 
-In our example, the tags are `hello_tag` and `goodbye_tag`.  So `parser[hello_tag]` is true if the parser read `-h` or `--hello`, and `parser[goodbye_tag]` is true if the parser read `-g` or `--goodbye`.
+In our example, the tags are `tags::hello_tag` and `tags::goodbye_tag`.  So `parser[tags::hello_tag]` is true if the parser read `-h` or `--hello`, and `parser[tags::goodbye_tag]` is true if the parser read `-g` or `--goodbye`.
 
-Arglet uses this approach because it allows `operator[]` to return different types of values for different kinds of arguments. For example, a `value_flag` parses a flag followed by another argument that provides a value, and as a result `operator[]` needs to return the object parsed by the `value_flag`. 
+Because each tag has it's own type, each overload for `operator[]` can return it's own type as well, meaning that you can parse complex information (like a list of files) all while keeping the implementation type-safe and statically typed:
+```cpp
+using path = std::filesystem::path;
+
+auto parser = sequence {
+    ignore_arg,
+    list_of {
+        tags::files, // Declared in namespace tags
+        std::vector<path>{}
+    }
+};
+
+parser.parse(argc, argv);
+
+std::vector<path> files = parser[tags::files];
+``` 
