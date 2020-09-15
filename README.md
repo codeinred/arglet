@@ -24,7 +24,9 @@ int main(int argc, char const** argv) {
         ignore_arg, // We can ignore argv[0]
         flag_set{
             flag{tags::hello_tag, 'h', "--hello"},
-            flag{tags::goodbye_tag, 'g', "--goodbye"}}};
+            flag{tags::goodbye_tag, 'g', "--goodbye"}
+        }
+    };
 
     parser.parse(argc, argv);
 
