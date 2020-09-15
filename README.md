@@ -20,9 +20,9 @@ namespace tags {
 int main(int argc, char const** argv) {
     using namespace arglet;
 
-    auto parser = sequence{
+    auto parser = sequence {
         ignore_arg, // We can ignore argv[0]
-        flag_set{
+        flag_set {
             flag{tags::hello_tag, 'h', "--hello"},
             flag{tags::goodbye_tag, 'g', "--goodbye"}
         }
@@ -30,10 +30,10 @@ int main(int argc, char const** argv) {
 
     parser.parse(argc, argv);
 
-    if(parser[tags::hello_tag]) {
+    if (parser[tags::hello_tag]) {
         std::cout << "Hello!" << std::endl;
     }
-    if(parser[tags::goodbye_tag]) {
+    if (parser[tags::goodbye_tag]) {
         std::cout << "Goodbye!" << std::endl;
     }
 }
@@ -73,12 +73,12 @@ using path = std::filesystem::path;
 auto parser = sequence {
     ignore_arg,
     list_of {
-        tags::files, // Declared in namespace tags
+        tags::files_tag, // Declared in namespace tags
         std::vector<path>{}
     }
 };
 
 parser.parse(argc, argv);
 
-std::vector<path> files = parser[tags::files];
+std::vector<path> files = parser[tags::files_tag];
 ``` 
