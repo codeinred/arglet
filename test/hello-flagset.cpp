@@ -2,38 +2,43 @@
 #include <iostream>
 
 namespace tags {
-struct hello_t {};
-struct goodbye_t {};
-struct print_name_t {};
-struct program_name_t {};
-constexpr hello_t hello{};
-constexpr goodbye_t goodbye{};
-constexpr print_name_t print_name;
-constexpr program_name_t program_name{};
+struct hello_t {} hello;
+struct goodbye_t {} goodbye;
+struct print_name_t {} print_name;
+struct program_name_t {} program_name;
 } // namespace tags
 
 auto get_parser() {
     using namespace arglet;
-    using namespace tags;
 
     return sequence{
-        string{program_name},
+        string{tags::program_name},
         flag_set{
-            flag{hello, 'h', "--hello"},
-            flag{print_name, 'n', "--print-name"},
-            flag{goodbye, 'g', "--goodbye"}}};
+            flag{tags::hello, 'h', "--hello"},
+            flag{tags::print_name, 'n', "--print-name"},
+            flag{tags::goodbye, 'g', "--goodbye"}}};
 }
+
 int main(int argc, char const* argv[]) {
     auto parser = get_parser();
-    parser.parse(argv, argv + argc);
+    int num_args_parsed = parser.parse(argc, argv);
 
-    if (parser[tags::print_name]) {
-        std::cout << ">>  ./" << parser[tags::program_name] << std::endl;
+    if(std::optional name = parser[tags::program_name]) {
+        std::cout << ">> Running " << name.value() << std::endl;
     }
     if (parser[tags::hello]) {
         std::cout << ">>  hello, world!" << std::endl;
     }
     if (parser[tags::goodbye]) {
         std::cout << ">>  goodbye, world!" << std::endl;
+    }
+
+    if(num_args_parsed < argc) {
+        for(int i = num_args_parsed; i < argc; i++) {
+            std::cout << "Couldn't parse: " << argv[i] << '\n';
+        }
+        return 1;
+    } else {
+        return 0;
     }
 }
