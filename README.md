@@ -3,6 +3,7 @@ Arglet is a header-only argument-parsing library written for C++, and it's desig
 - Simple;
 - Visual;
 - And Composable.
+
 This means that parsers should be easy to write; the visual structure of the parser should reflect it's syntax; and you can build bigger parsers out of smaller parsers.
 ## Hello Arglet: A simple example program
 Let's look at a simple parser for a program that will either print hello or goodbye:
