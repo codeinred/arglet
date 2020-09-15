@@ -10,45 +10,79 @@ namespace arglet {
 template <size_t N>
 using string_literal = char const (&)[N];
 
-template <class Parser, size_t... Size>
-constexpr decltype(auto) set_defaults(Parser&& p,
-                                      string_literal<Size>... default_args) {
-    using arg_t = const char*;
-    std::array<arg_t, sizeof...(Size) + 1> args{default_args..., nullptr};
-    p.parse(args.data());
-    return std::forward<Parser>(p);
-}
+enum class flag_form { Short = 1, Long = 2, Both = 3 };
 
-template <size_t N>
-struct flag_list {
-    std::string_view flags[N];
-    constexpr bool contains(char const* c) const noexcept {
-        for (auto f : flags) {
-            if (f == c) {
-                return true;
-            }
+template <class Tag, flag_form form>
+struct flag;
+
+template <class Tag>
+struct flag<Tag, flag_form::Short> {
+    [[no_unique_address]] Tag tag;
+    char short_form = '\0';
+    bool value = false;
+    constexpr char const** parse(char const** begin, char const** end) {
+        auto this_arg = begin[0];
+        if (this_arg[0] == '-' && this_arg[1] == short_form &&
+            this_arg[2] == '\0') {
+            value = true;
+            return begin + 1;
+        } else {
+            return begin;
         }
-        return false;
     }
-    constexpr size_t index(const char* c) const noexcept {
-        for (size_t i = 0; i < N; i++) {
-            if (flags[i] == c) {
-                return i;
-            }
-        }
-        return N;
-    }
+    bool& operator[](Tag) { return value; }
 };
-template <size_t... I>
-flag_list(string_literal<I>...) -> flag_list<sizeof...(I)>;
+template <class Tag>
+struct flag<Tag, flag_form::Long> {
+    [[no_unique_address]] Tag tag;
+    std::string_view long_form{};
+    bool value = false;
+    constexpr char const** parse(char const** begin, char const** end) {
+        if (long_form == begin[0]) {
+            value = true;
+            return begin + 1;
+        } else {
+            return begin;
+        }
+    }
+    bool& operator[](Tag) { return value; }
+};
+template <class Tag>
+struct flag<Tag, flag_form::Both> {
+    [[no_unique_address]] Tag tag;
+    char short_form = '\0';
+    std::string_view long_form{};
+    bool value = false;
+    constexpr char const** parse(char const** begin, char const** end) {
+        auto this_arg = begin[0];
+        if (this_arg[0] == '-' && this_arg[1] == short_form &&
+            this_arg[2] == '\0') {
+            value = true;
+            return begin + 1;
+        } else if (long_form == this_arg) {
+            value = true;
+            return begin + 1;
+        } else {
+            return begin;
+        }
+    }
+    bool& operator[](Tag) { return value; }
+};
+template <class Tag>
+flag(Tag tag, char) -> flag<Tag, flag_form::Short>;
+template <class Tag, size_t N>
+flag(Tag, string_literal<N>) -> flag<Tag, flag_form::Long>;
+template <class Tag, size_t N>
+flag(Tag, char, string_literal<N>) -> flag<Tag, flag_form::Both>;
 
 template <class... Arg>
 struct sequence : Arg... {
     using Arg::operator[]...;
 
-    constexpr char const** parse(char const** args) {
-        (*args && ... && *(args = Arg::parse(args)));
-        return args;
+    constexpr char const** parse(char const** begin, char const** end) {
+        ((begin != end) && ... &&
+         (begin = Arg::parse(begin, end), begin != end));
+        return begin;
     }
 };
 template <class... Arg>
@@ -58,13 +92,15 @@ template <class... Arg>
 struct section : Arg... {
     using Arg::operator[]...;
 
-    constexpr char const** parse(char const** args) {
+    constexpr char const** parse(char const** begin, char const** end) {
         char const** initial = nullptr;
         do {
-            initial = args;
-            (*args && ... && *(args = Arg::parse(args)));
-        } while (initial != args);
-        return args;
+            initial = begin;
+            ((begin != end) && ... &&
+             (begin = Arg::parse(begin, end), begin != end));
+            ;
+        } while (initial != begin);
+        return begin;
     }
 };
 template <class... Arg>
@@ -74,9 +110,9 @@ template <class Tag>
 struct string {
     [[no_unique_address]] Tag tag;
     std::string_view value;
-    constexpr char const** parse(char const** args) {
-        value = *args;
-        return args + 1;
+    constexpr char const** parse(char const** begin, const char** end) {
+        value = *begin;
+        return begin + 1;
     }
     constexpr std::string_view& operator[](Tag) { return value; }
 };
@@ -85,139 +121,76 @@ string(T) -> string<T>;
 template <class T>
 string(T, std::string_view) -> string<T>;
 
-template <class Tag, size_t N>
-struct flag {
-    [[no_unique_address]] Tag tag;
-    flag_list<N> flags;
-    bool value = false;
-    constexpr char const** parse(char const** args) {
-        if (flags.contains(*args)) {
-            value = true;
-            return args + 1;
-        } else {
-            return args;
-        }
-    }
-    constexpr bool operator[](Tag) { return value; }
-};
-
-namespace flagset_details {
-template <class Derived, class Tag, size_t I>
-struct tag_index {
-    constexpr bool& operator[](Tag) {
-        return static_cast<Derived*>(this)->flags[I];
-    }
-    constexpr bool operator[](Tag) const {
-        return static_cast<Derived const*>(this)->flags[I];
-    }
-};
-template <class Derived, size_t I, class Tag, class... Rest>
-struct flag_set_bases : tag_index<Derived, Tag, I>,
-                        flag_set_bases<Derived, I + 1, Rest...> {
-    using tag_index<Derived, Tag, I>::operator[];
-    using flag_set_bases<Derived, I + 1, Rest...>::operator[];
-};
-template <class Derived, size_t I, class Tag>
-struct flag_set_bases<Derived, I, Tag> : tag_index<Derived, Tag, I> {
-    using tag_index<Derived, Tag, I>::operator[];
-};
-} // namespace flagset_details
-
-template <class Tag>
-struct fs_item {
-    [[no_unique_address]] Tag tag;
-    char short_form;
-    std::string_view long_form;
-};
-template <class Tag, size_t Size>
-fs_item(Tag, char, string_literal<Size>) -> fs_item<Tag>;
-
-template <class... Tags>
-struct flag_set
-  : flagset_details::flag_set_bases<flag_set<Tags...>, 0, Tags...> {
-
-    constexpr static size_t N = sizeof...(Tags);
-    flag_list<N> long_form;
-    std::array<char, N> short_form;
-    std::array<bool, N> flags{};
-
-    using flagset_details::flag_set_bases<flag_set<Tags...>, 0,
-                                          Tags...>::operator[];
-    constexpr flag_set(fs_item<Tags>... members) noexcept
-      : long_form{members.long_form...},
-        short_form{members.short_form...}, flags{} {}
-
-    char const** parse(char const** args) {
-        const std::string_view this_arg = args[0];
-        if (this_arg.size() > 1 && this_arg[0] == '-') {
-            auto new_state = flags;
-            bool all_recognized = true;
-            for (char c : this_arg.substr(1)) {
-                bool recognized = false;
-                for (int i = 0; i < N; i++) {
-                    if (short_form[i] == c) {
-                        new_state[i] = true;
-                        recognized = true;
+template <class... Flag>
+struct flag_set : Flag... {
+    using Flag::operator[]...;
+    constexpr const char** parse(const char** begin, const char** end) {
+        while (begin != end) {
+            char const* this_arg = *begin;
+            if (this_arg[0] == '-') {
+                bool successful = true;
+                int i = 1;
+                bool current_state[]{Flag::value...};
+                while (char c = this_arg[i++]) {
+                    bool any_flag_matches =
+                        ((Flag::short_form == c && (Flag::value = true)) ||
+                         ...);
+                    if (!any_flag_matches) {
+                        successful = false;
+                        break;
                     }
                 }
-                if (!recognized) {
-                    all_recognized = false;
-                    break;
+                if (successful) {
+                    begin++;
+                    continue;
+                } else {
+                    // Reset previous state
+                    i = 0;
+                    ((Flag::value = current_state[i++]), ...);
                 }
             }
-            if (all_recognized) {
-                flags = new_state;
-                return args + 1;
+            if (((Flag::long_form == this_arg && (Flag::value = true)) ||
+                 ...)) {
+                begin++;
+                continue;
             }
+            return begin;
         }
-        auto index = long_form.index(args[0]);
-        if (index < N) {
-            flags[index] = true;
-            return args + 1;
-        }
-        return args;
+        return begin;
     }
 };
-template <class... Tag>
-flag_set(fs_item<Tag>...) -> flag_set<Tag...>;
+template<class... Flag>
+flag_set(Flag...) -> flag_set<Flag...>;
 
-template <class T, size_t... I>
-flag(T, string_literal<I>...) -> flag<T, sizeof...(I)>;
-template <class T, size_t... I>
-flag(T, string_literal<I>..., bool) -> flag<T, sizeof...(I)>;
-template <class T, size_t N>
-flag(T, flag_list<N>) -> flag<T, N>;
-template <class T, size_t N>
-flag(T, flag_list<N>, bool) -> flag<T, N>;
-
-template <class Tag, size_t N>
-struct option_flag {
-    [[no_unique_address]] Tag tag;
-    flag_list<N> flags{};
-    std::string_view value{};
-    constexpr char const** parse(char const** args) {
-        char const* next_arg = args[1];
-
-        if (flags.contains(args[0]) && next_arg != nullptr) {
-            value = next_arg;
-            return args + 2;
-        } else {
-            return args;
-        }
-    }
-    constexpr std::string_view& operator[](Tag) { return value; }
-};
-template <class T, size_t... I>
-option_flag(T, string_literal<I>...) -> option_flag<T, sizeof...(I)>;
-template <class T, size_t N>
-option_flag(T, flag_list<N>) -> option_flag<T, N>;
-template <class T, size_t N>
-option_flag(T, flag_list<N>, std::string_view) -> option_flag<T, N>;
+// To-do: re-implement in terms of updated flag
+// template <class Tag, size_t N>
+// struct option_flag {
+//     [[no_unique_address]] Tag tag;
+//     flag_list<N> flags{};
+//     std::string_view value{};
+//     constexpr char const** parse(char const** args) {
+//         char const* next_arg = args[1];
+//
+//         if (flags.contains(args[0]) && next_arg != nullptr) {
+//             value = next_arg;
+//             return args + 2;
+//         } else {
+//             return args;
+//         }
+//     }
+//     constexpr std::string_view& operator[](Tag) { return value; }
+// };
+// template <class T, size_t... I>
+// option_flag(T, string_literal<I>...) -> option_flag<T, sizeof...(I)>;
+// template <class T, size_t N>
+// option_flag(T, flag_list<N>) -> option_flag<T, N>;
+// template <class T, size_t N>
+// option_flag(T, flag_list<N>, std::string_view) -> option_flag<T, N>;
 
 struct ignore_arg_t {
     template <int>
     void operator[](int) {}
-    constexpr char const** parse(char const** args) { return args + 1; }
+    constexpr char const** parse(char const** begin, const char** end) { return begin + (begin != end); }
 };
 constexpr ignore_arg_t ignore_arg = {};
 

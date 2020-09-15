@@ -19,13 +19,13 @@ auto get_parser() {
     return sequence{
         string{program_name},
         section{
-            flag{hello, "-h", "--hello"},
-            flag{print_name, "-n", "--print-name"},
-            flag{goodbye, "-g", "--goodbye"}}};
+            flag{hello, 'h', "--hello"},
+            flag{print_name, 'n', "--print-name"},
+            flag{goodbye, 'g', "--goodbye"}}};
 }
 int main(int argc, char const* argv[]) {
     auto parser = get_parser();
-    parser.parse(argv);
+    parser.parse(argv, argv + argc);
 
     std::cout << parser[tags::program_name] << std::endl;
 

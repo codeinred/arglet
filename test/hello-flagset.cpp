@@ -18,18 +18,17 @@ auto get_parser() {
 
     return sequence{
         string{program_name},
-        section {
-            flag_set(
-                fs_item{hello, 'h', "--hello"},
-                fs_item{print_name, 'n', "--print-name"},
-                fs_item{goodbye, 'g', "--goodbye"})}};
+        flag_set{
+            flag{hello, 'h', "--hello"},
+            flag{print_name, 'n', "--print-name"},
+            flag{goodbye, 'g', "--goodbye"}}};
 }
 int main(int argc, char const* argv[]) {
     auto parser = get_parser();
-    parser.parse(argv);
+    parser.parse(argv, argv + argc);
 
     if (parser[tags::print_name]) {
-        std::cout << "Running " << parser[tags::program_name] << std::endl;
+        std::cout << ">>  ./" << parser[tags::program_name] << std::endl;
     }
     if (parser[tags::hello]) {
         std::cout << ">>  hello, world!" << std::endl;
