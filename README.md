@@ -1,3 +1,5 @@
+![Arg-let logo](.github/Arglet-rounded.jpg)
+
 # Arglet: A Declarative Argument-Parsing Library
 Arglet is a header-only argument-parsing library written for C++, and it's designed with the goal of allowing you to write parsers that are 
 - Simple,
