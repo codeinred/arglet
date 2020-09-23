@@ -19,6 +19,7 @@ struct flag;
 
 template <class Tag>
 struct flag<Tag, flag_form::Short> {
+    using state_type = bool;
     [[no_unique_address]] Tag tag;
     char short_form = '\0';
     bool value = false;
@@ -37,9 +38,19 @@ struct flag<Tag, flag_form::Short> {
         return parse(argv, argv + argc) - argv;
     }
     bool& operator[](Tag) { return value; }
+    constexpr bool parse_char(char c) noexcept {
+        if (short_form == c) {
+            value = true;
+            return true;
+        } else {
+            return false;
+        }
+    }
+    constexpr bool parse_long_form(const char*) const noexcept { return false; }
 };
 template <class Tag>
 struct flag<Tag, flag_form::Long> {
+    using state_type = bool;
     [[no_unique_address]] Tag tag;
     std::string_view long_form{};
     bool value = false;
@@ -56,9 +67,20 @@ struct flag<Tag, flag_form::Long> {
         return parse(argv, argv + argc) - argv;
     }
     bool& operator[](Tag) { return value; }
+    constexpr bool parse_char(char) const noexcept { return false; }
+    constexpr bool parse_long_form(const char* arg) {
+        if (long_form == arg) {
+            value = true;
+            return true;
+        } else {
+            return false;
+        }
+    }
 };
 template <class Tag>
 struct flag<Tag, flag_form::Both> {
+    using state_type = bool;
+
     [[no_unique_address]] Tag tag;
     char short_form = '\0';
     std::string_view long_form{};
@@ -81,6 +103,22 @@ struct flag<Tag, flag_form::Both> {
         return parse(argv, argv + argc) - argv;
     }
     bool& operator[](Tag) { return value; }
+    constexpr bool parse_char(char c) noexcept {
+        if (short_form == c) {
+            value = true;
+            return true;
+        } else {
+            return false;
+        }
+    }
+    constexpr bool parse_long_form(const char* arg) {
+        if (long_form == arg) {
+            value = true;
+            return true;
+        } else {
+            return false;
+        }
+    }
 };
 template <class Tag>
 flag(Tag tag, char) -> flag<Tag, flag_form::Short>;
@@ -130,6 +168,13 @@ struct section : Arg... {
 template <class... Arg>
 section(Arg...) -> section<Arg...>;
 
+template <class... T>
+auto save_state(T... values) {
+    return [... saved_state = values](T&... values_to_restore) {
+        ((void)(values_to_restore = saved_state), ...);
+    };
+}
+
 template <class... Flag>
 struct flag_set : Flag... {
     using Flag::operator[]...;
@@ -138,28 +183,23 @@ struct flag_set : Flag... {
             char const* this_arg = *begin;
             if (this_arg[0] == '-') {
                 bool successful = true;
+                auto reset_state = save_state(Flag::value...);
+
                 int i = 1;
-                bool current_state[]{Flag::value...};
                 while (char c = this_arg[i++]) {
-                    bool any_flag_matches =
-                        (((Flag::short_form == c) && (Flag::value = true)) ||
-                         ...);
+                    bool any_flag_matches = (Flag::parse_char(c) || ...);
                     if (!any_flag_matches) {
                         successful = false;
+                        reset_state(Flag::value...);
                         break;
                     }
                 }
                 if (successful) {
                     begin++;
                     continue;
-                } else {
-                    // Reset previous state
-                    i = 0;
-                    ((Flag::value = current_state[i++]), ...);
                 }
             }
-            if ((((Flag::long_form == this_arg) && (Flag::value = true)) ||
-                 ...)) {
+            if ((Flag::parse_long_form(this_arg) || ...)) {
                 begin++;
                 continue;
             }
@@ -359,37 +399,152 @@ struct list_of {
     auto const& operator[](Tag) const { return value; }
 };
 
-template <class T>
-struct option {
-    std::string_view name;
-    T value{};
+namespace detail {
+struct ignore_function_arg {
+    ignore_function_arg() = default;
+    ignore_function_arg(ignore_function_arg const&) = default;
+    template <class T>
+    constexpr ignore_function_arg(T&&) noexcept {}
 };
-template <size_t N, class T>
-option(string_literal<N>, T) -> option<T>;
-template <class T>
-option(std::string_view, T) -> option<T>;
+} // namespace detail
 
-template <class Tag, class T, size_t N>
-struct option_set {
-    [[no_unique_address]] Tag tag;
-    std::optional<T> value{};
-    std::array<option<T>, N> options{};
-    constexpr char const** parse(char const** begin, [[maybe_unused]] char const** end) {
-        std::string_view name = begin[0];
-        for (option op : options) {
-            if (op.name == name) {
-                value = op.value;
-                return begin + 1;
-            }
+template <class T, flag_form type>
+struct option;
+
+template <class T>
+struct option<T, flag_form::Short> {
+    char short_form;
+    T option_value{};
+    template <class U>
+    bool match_assign(std::string_view arg, U& value) {
+        if (arg.size() == 2 && arg[0] == '-' && arg[1] == short_form) {
+            value = option_value;
+            return true;
+        } else {
+            return false;
         }
+    }
+    template <class U>
+    constexpr bool match_assign_char(char c, U& value) {
+        if (short_form == c) {
+            value = option_value;
+            return true;
+        } else {
+            return false;
+        }
+    }
+    constexpr bool match_assign_long_form(std::string_view,
+                                          detail::ignore_function_arg) const {
+        return false;
+    }
+};
+
+template <class T>
+struct option<T, flag_form::Long> {
+    std::string_view long_form;
+    T option_value{};
+    template <class U>
+    constexpr bool match_assign(std::string_view arg, U& value) {
+        if (long_form == arg) {
+            value = option_value;
+            return true;
+        } else {
+            return false;
+        }
+    }
+    constexpr bool match_assign_char(char c,
+                                     detail::ignore_function_arg) const {
+        return false;
+    }
+    template <class U>
+    constexpr bool match_assign_long_form(std::string_view arg, U& value) {
+        if (long_form == arg) {
+            value = option_value;
+            return true;
+        } else {
+            return false;
+        }
+    }
+};
+template <class T>
+struct option<T, flag_form::Both> {
+    char short_form;
+    std::string_view long_form;
+    T option_value{};
+    template <class U>
+    constexpr bool match_assign(std::string_view arg, U& value) {
+        if ((arg.size() == 2 && arg[0] == '-' && arg[1] == short_form) ||
+            long_form == arg) {
+            value = option_value;
+            return true;
+        } else {
+            return false;
+        }
+    }
+    template <class U>
+    constexpr bool match_assign_char(char c, U& value) {
+        if (short_form == c) {
+            value = option_value;
+            return true;
+        } else {
+            return false;
+        }
+    }
+    template <class U>
+    constexpr bool match_assign_long_form(std::string_view arg, U& value) {
+        if (long_form == arg) {
+            value = option_value;
+            return true;
+        } else {
+            return false;
+        }
+    }
+};
+
+template <class T>
+option(char, T) -> option<T, flag_form::Short>;
+template <size_t N, class T>
+option(string_literal<N>, T) -> option<T, flag_form::Long>;
+template <class T>
+option(std::string_view, T) -> option<T, flag_form::Long>;
+template <size_t N, class T>
+option(char, string_literal<N>, T) -> option<T, flag_form::Both>;
+template <class T>
+option(char, std::string_view, T) -> option<T, flag_form::Both>;
+
+template <class Tag, class T>
+struct option_state {
+    [[no_unique_address]] Tag tag;
+    T value{};
+    auto& operator[](Tag) { return value; }
+    auto const& operator[](Tag) const { return value; }
+};
+
+template <class Tag, class T, bool is_optional, flag_form... forms>
+struct option_set : option_state<Tag, std::conditional_t<is_optional, std::optional<T>, T>>, option<T, forms>... {
+    using state_impl = option_state<Tag, std::conditional_t<is_optional, std::optional<T>, T>>;
+    using state_impl::value;
+    using state_impl::operator[];
+    constexpr char const** parse(char const** begin,
+                                 [[maybe_unused]] char const** end) {
+        std::string_view arg = begin[0];
+        begin += ((option<T, forms>::match_assign(arg, value) || ...));
         return begin;
     }
     constexpr intptr_t parse(int argc, char const** argv) {
         return parse(argv, argv + argc) - argv;
     }
-    auto& operator[](Tag) { return value; }
-    auto const& operator[](Tag) const { return value; }
+    constexpr bool parse_char(char c) {
+        return (option<T, forms>::match_assign_char(c, value) || ...);
+    }
+    constexpr bool parse_long_form(char c) {
+        return (option<T, forms>::match_assign_long_form(c, value) || ...);
+    }
 };
+template<class Tag, class T, flag_form... forms>
+option_set(Tag, T, option<T, forms>...) -> option_set<Tag, T, false, forms...>;
+template<class Tag, class T, flag_form... forms>
+option_set(Tag, std::optional<T>, option<T, forms>...) -> option_set<Tag, T, true, forms...>;
 
 using command_fn = int (*)(int, char const**);
 
@@ -398,27 +553,17 @@ int unimplemented_command(int, char const**) {
     return 1;
 }
 
-template <class Tag, size_t N>
-struct command_set {
-    [[no_unique_address]] Tag tag;
-    std::array<option<command_fn>, N> commands{};
-    command_fn value = nullptr;
-    std::string_view command_name{};
-    constexpr char const** parse(char const** begin, char const** end) {
-        if (!command_name.data() && begin != end) {
-            std::string_view name = begin[0];
-            for (option op : commands) {
-                if (op.name == name) {
-                    value = op.value;
-                    command_name = op.name;
-                    return begin + 1;
-                }
-            }
-            command_name = name;
-            return begin;
-        } else {
-            return begin;
-        }
+template <class Tag, flag_form... forms>
+struct command_set : option_state<Tag, command_fn>, option<command_fn, forms>... {
+    using state_impl = option_state<Tag, command_fn>;
+    using state_impl::value;
+    using state_impl::operator[];
+    std::string_view command_name;
+    constexpr char const** parse(char const** begin,
+                                 [[maybe_unused]] char const** end) {
+        std::string_view arg = begin[0];
+        command_name = arg;
+        return begin + (option<command_fn, forms>::match_assign(arg, value) || ...);
     }
     constexpr intptr_t parse(int argc, char const** argv) {
         return parse(argv, argv + argc) - argv;
@@ -446,17 +591,13 @@ struct command_set {
         }
     }
 };
-template <class Tag, class... T>
-command_set(Tag, T...) -> command_set<Tag, sizeof...(T)>;
-template <class Tag, class... T>
-command_set(Tag, T..., command_fn) -> command_set<Tag, sizeof...(T)>;
-template <class Tag, size_t N>
-command_set(Tag, std::array<option<command_fn>, N>) -> command_set<Tag, N>;
-template <class Tag, size_t N>
-command_set(Tag, std::array<option<command_fn>, N>, command_fn) -> command_set<Tag, N>;
+template<class Tag, flag_form... forms>
+command_set(Tag, command_fn, option<command_fn, forms>...) -> command_set<Tag, forms...>;
+template<class Tag, flag_form... forms>
+command_set(Tag, std::nullptr_t, option<command_fn, forms>...) -> command_set<Tag, forms...>;
 
 template <class T>
-option<T> operator>>(std::string_view s, T value) {
+option<T, flag_form::Long> operator>>(std::string_view s, T value) {
     return {s, value};
 }
 } // namespace arglet

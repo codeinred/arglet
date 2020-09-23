@@ -17,6 +17,7 @@ auto get_parser() {
         string{tags::program_name},
         command_set{
             tags::subcommand,
+            nullptr,
             option{"hello", hello},
             option{"goodbye", goodbye},
             option{"help", arglet::unimplemented_command},
