@@ -18,10 +18,10 @@ auto get_parser() {
         command_set{
             tags::subcommand,
             nullptr,
-            option{"hello", hello},
-            option{"goodbye", goodbye},
-            option{"help", arglet::unimplemented_command},
-            option{"name", print_name}}};
+            option{'h', "hello", hello},
+            option{'g', "goodbye", goodbye},
+            option{'?', "help", arglet::unimplemented_command},
+            option{'n', "name", print_name}}};
 }
 
 int main(int argc, char const* argv[]) {

@@ -6,6 +6,7 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+#include <tuple>
 
 namespace arglet {
 
@@ -521,24 +522,39 @@ struct option_state {
 };
 
 template <class Tag, class T, bool is_optional, flag_form... forms>
-struct option_set : option_state<Tag, std::conditional_t<is_optional, std::optional<T>, T>>, option<T, forms>... {
-    using state_impl = option_state<Tag, std::conditional_t<is_optional, std::optional<T>, T>>;
+struct option_set : option_state<Tag, std::conditional_t<is_optional, std::optional<T>, T>>, std::tuple<option<T, forms>...> {
+    using state_t = std::conditional_t<is_optional, std::optional<T>, T>;
+    using state_impl = option_state<Tag, state_t>;
     using state_impl::value;
     using state_impl::operator[];
+    using option_tuple = std::tuple<option<T, forms>...>;
+    option_set(Tag tag, state_t initial, option<T, forms>... options)
+        : state_impl{tag, initial}
+        , option_tuple{options...} {}
+    option_set(Tag tag, option<T, forms>... options)
+        : state_impl{tag, {}}
+        , option_tuple{options...} {}
     constexpr char const** parse(char const** begin,
                                  [[maybe_unused]] char const** end) {
-        std::string_view arg = begin[0];
-        begin += ((option<T, forms>::match_assign(arg, value) || ...));
-        return begin;
+        auto impl = [arg = std::string_view(begin[0]), this](auto&... opts) -> bool {
+            return (opts.match_assign(arg, value) || ...);
+        };
+        return begin + std::apply<decltype(impl)&, option_tuple&>(impl, *this);
     }
     constexpr intptr_t parse(int argc, char const** argv) {
         return parse(argv, argv + argc) - argv;
     }
     constexpr bool parse_char(char c) {
-        return (option<T, forms>::match_assign_char(c, value) || ...);
+        auto impl = [c, this](auto&... opts) -> bool {
+            return (opts.match_assign_char(c, value) || ...);
+        };
+        return std::apply<decltype(impl)&, option_tuple&>(impl, *this);
     }
-    constexpr bool parse_long_form(char c) {
-        return (option<T, forms>::match_assign_long_form(c, value) || ...);
+    constexpr bool parse_long_form(const char* arg) {
+        auto impl = [thing = std::string_view(arg), this](auto&... opts) -> bool {
+            return (opts.match_assign_long_form(thing, value) || ...);
+        };
+        return std::apply<decltype(impl)&, option_tuple&>(impl, *this);
     }
 };
 template<class Tag, class T, flag_form... forms>
@@ -549,21 +565,27 @@ option_set(Tag, std::optional<T>, option<T, forms>...) -> option_set<Tag, T, tru
 using command_fn = int (*)(int, char const**);
 
 int unimplemented_command(int, char const**) {
-    printf("[No implementation was specified for this subcommand]");
+    printf("[No implementation was specified for this subcommand]\n");
     return 1;
 }
 
 template <class Tag, flag_form... forms>
-struct command_set : option_state<Tag, command_fn>, option<command_fn, forms>... {
+struct command_set : option_state<Tag, command_fn>, std::tuple<option<command_fn, forms>...> {
     using state_impl = option_state<Tag, command_fn>;
     using state_impl::value;
     using state_impl::operator[];
     std::string_view command_name;
+    using option_tuple = std::tuple<option<command_fn, forms>...>;
+    command_set(Tag tag, command_fn func, option<command_fn, forms>... options)
+        : state_impl{tag, func}
+        , option_tuple{options...} {}
     constexpr char const** parse(char const** begin,
                                  [[maybe_unused]] char const** end) {
-        std::string_view arg = begin[0];
-        command_name = arg;
-        return begin + (option<command_fn, forms>::match_assign(arg, value) || ...);
+        command_name = begin[0];
+        auto impl = [arg = std::string_view(begin[0]), this](auto&... opts) -> bool {
+            return (opts.match_assign(arg, value) || ...);
+        };
+        return begin + std::apply<decltype(impl)&, option_tuple&>(impl, *this);
     }
     constexpr intptr_t parse(int argc, char const** argv) {
         return parse(argv, argv + argc) - argv;
