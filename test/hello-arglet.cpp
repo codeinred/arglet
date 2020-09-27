@@ -13,7 +13,7 @@ auto get_parser() {
 
     return sequence{
         string{tags::program_name},
-        section{
+        group{
             flag{tags::hello, 'h', "--hello"},
             flag{tags::print_name, 'n', "--print-name"},
             flag{tags::goodbye, 'g', "--goodbye"}}};
