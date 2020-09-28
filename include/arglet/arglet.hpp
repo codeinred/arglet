@@ -123,41 +123,86 @@ struct flag_matcher<flag_form::Short> {
     constexpr bool matches(const char* arg) {
         return arg[0] == '-' && arg[1] == short_form && arg[2] == '\0';
     }
+
+    template <class Value, class NewValue = Value>
+    constexpr bool parse_char(char c, Value& value, NewValue&& new_value) {
+        if (short_form == c) {
+            value = std::forward<NewValue>(new_value);
+            return true;
+        } else {
+            return false;
+        }
+    }
+    constexpr bool parse_long_form(util::ignore_function_arg,
+                                   util::ignore_function_arg,
+                                   util::ignore_function_arg) {
+        return false;
+    }
 };
 template <>
 struct flag_matcher<flag_form::Long> {
     std::string_view long_form;
 
     constexpr bool matches(const char* arg) { return long_form == arg; }
+
+    constexpr bool parse_char(util::ignore_function_arg,
+                              util::ignore_function_arg,
+                              util::ignore_function_arg) {
+        return false;
+    }
+    template <class Value, class NewValue = Value>
+    constexpr bool parse_long_form(std::string_view arg, Value& value,
+                                   NewValue&& new_value) {
+        if (long_form == arg) {
+            value = std::forward<NewValue>(new_value);
+            return true;
+        } else {
+            return false;
+        }
+    }
 };
 template <>
 struct flag_matcher<flag_form::Both> {
     char short_form;
     std::string_view long_form;
 
-    bool matches(const char* arg) {
+    constexpr bool matches(const char* arg) {
         return (arg[0] == '-' && arg[1] == short_form && arg[2] == '\0') ||
                (long_form == arg);
     }
+    template <class Value, class NewValue = Value>
+    constexpr bool parse_char(char c, Value& value, NewValue&& new_value) {
+        if (short_form == c) {
+            value = std::forward<NewValue>(new_value);
+            return true;
+        } else {
+            return false;
+        }
+    }
+    template <class Value, class NewValue = Value>
+    constexpr bool parse_long_form(const char* arg, Value& value,
+                                   NewValue&& new_value) {
+        if (long_form == arg) {
+            value = std::forward<NewValue>(new_value);
+            return true;
+        } else {
+            return false;
+        }
+    }
 };
-
 } // namespace arglet
+
 // arglet::flag implementation
 namespace arglet {
 template <class Tag, flag_form form>
-struct flag;
-
-template <class Tag>
-struct flag<Tag, flag_form::Short> {
+struct flag {
     using state_type = bool;
     [[no_unique_address]] Tag tag;
-    char short_form = '\0';
+    flag_matcher<form> matcher;
     bool value = false;
     constexpr char const** parse(char const** begin,
                                  [[maybe_unused]] char const** end) {
-        auto this_arg = begin[0];
-        if (this_arg[0] == '-' && this_arg[1] == short_form &&
-            this_arg[2] == '\0') {
+        if (matcher.matches(begin[0])) {
             value = true;
             return begin + 1;
         } else {
@@ -169,85 +214,10 @@ struct flag<Tag, flag_form::Short> {
     }
     bool& operator[](Tag) { return value; }
     constexpr bool parse_char(char c) noexcept {
-        if (short_form == c) {
-            value = true;
-            return true;
-        } else {
-            return false;
-        }
+        return matcher.parse_char(c, value, true);
     }
-    constexpr bool parse_long_form(const char*) const noexcept { return false; }
-};
-template <class Tag>
-struct flag<Tag, flag_form::Long> {
-    using state_type = bool;
-    [[no_unique_address]] Tag tag;
-    std::string_view long_form{};
-    bool value = false;
-    constexpr char const** parse(char const** begin,
-                                 [[maybe_unused]] char const** end) {
-        if (long_form == begin[0]) {
-            value = true;
-            return begin + 1;
-        } else {
-            return begin;
-        }
-    }
-    constexpr intptr_t parse(int argc, char const** argv) {
-        return parse(argv, argv + argc) - argv;
-    }
-    bool& operator[](Tag) { return value; }
-    constexpr bool parse_char(char) const noexcept { return false; }
-    constexpr bool parse_long_form(const char* arg) {
-        if (long_form == arg) {
-            value = true;
-            return true;
-        } else {
-            return false;
-        }
-    }
-};
-template <class Tag>
-struct flag<Tag, flag_form::Both> {
-    using state_type = bool;
-
-    [[no_unique_address]] Tag tag;
-    char short_form = '\0';
-    std::string_view long_form{};
-    bool value = false;
-    constexpr char const** parse(char const** begin,
-                                 [[maybe_unused]] char const** end) {
-        auto this_arg = begin[0];
-        if (this_arg[0] == '-' && this_arg[1] == short_form &&
-            this_arg[2] == '\0') {
-            value = true;
-            return begin + 1;
-        } else if (long_form == this_arg) {
-            value = true;
-            return begin + 1;
-        } else {
-            return begin;
-        }
-    }
-    constexpr intptr_t parse(int argc, char const** argv) {
-        return parse(argv, argv + argc) - argv;
-    }
-    bool& operator[](Tag) { return value; }
-    constexpr bool parse_char(char c) noexcept {
-        if (short_form == c) {
-            value = true;
-            return true;
-        } else {
-            return false;
-        }
-    }
-    constexpr bool parse_long_form(const char* arg) {
-        if (long_form == arg) {
-            value = true;
-            return true;
-        } else {
-            return false;
-        }
+    constexpr bool parse_long_form(const char* arg) noexcept {
+        return matcher.parse_long_form(arg, value, true);
     }
 };
 template <class Tag>
