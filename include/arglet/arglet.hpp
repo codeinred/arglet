@@ -50,8 +50,9 @@ struct partial_tuple<I, T> : tuple_elem<I, T> {
 };
 
 template <size_t I, class T, class... Rest>
-struct partial_tuple<I, T, Rest...> : tuple_elem<I, T>,
-                                      partial_tuple<I + 1, Rest...> {
+struct partial_tuple<I, T, Rest...>
+  : tuple_elem<I, T>
+  , partial_tuple<I + 1, Rest...> {
     using tuple_elem<I, T>::decl_elem;
     using tuple_elem<I, T>::operator[];
     using partial_tuple<I + 1, Rest...>::decl_elem;
@@ -125,6 +126,9 @@ struct flag_matcher<flag_form::Short> {
     constexpr bool matches(std::string_view arg) {
         return arg[0] == '-' && arg[1] == short_form && arg[2] == '\0';
     }
+    constexpr size_t match_prefix(std::string_view arg) {
+        return (arg[0] == '-' && arg[1] == short_form) ? 2 : 0;
+    }
 
     template <class Value, class NewValue = Value>
     constexpr bool parse_char(char c, Value& value, NewValue&& new_value) {
@@ -135,9 +139,10 @@ struct flag_matcher<flag_form::Short> {
             return false;
         }
     }
-    constexpr bool parse_long_form(util::ignore_function_arg,
-                                   util::ignore_function_arg,
-                                   util::ignore_function_arg) {
+    constexpr bool parse_long_form(
+        util::ignore_function_arg,
+        util::ignore_function_arg,
+        util::ignore_function_arg) {
         return false;
     }
 };
@@ -147,15 +152,19 @@ struct flag_matcher<flag_form::Long> {
 
     constexpr bool matches(const char* arg) { return long_form == arg; }
     constexpr bool matches(std::string_view arg) { return long_form == arg; }
+    constexpr size_t match_prefix(std::string_view arg) {
+        return arg.starts_with(long_form) ? long_form.size() : 0;
+    }
 
-    constexpr bool parse_char(util::ignore_function_arg,
-                              util::ignore_function_arg,
-                              util::ignore_function_arg) {
+    constexpr bool parse_char(
+        util::ignore_function_arg,
+        util::ignore_function_arg,
+        util::ignore_function_arg) {
         return false;
     }
     template <class Value, class NewValue = Value>
-    constexpr bool parse_long_form(const char* arg, Value& value,
-                                   NewValue&& new_value) {
+    constexpr bool
+    parse_long_form(const char* arg, Value& value, NewValue&& new_value) {
         if (long_form == arg) {
             value = std::forward<NewValue>(new_value);
             return true;
@@ -164,8 +173,8 @@ struct flag_matcher<flag_form::Long> {
         }
     }
     template <class Value, class NewValue = Value>
-    constexpr bool parse_long_form(std::string_view arg, Value& value,
-                                   NewValue&& new_value) {
+    constexpr bool
+    parse_long_form(std::string_view arg, Value& value, NewValue&& new_value) {
         if (long_form == arg) {
             value = std::forward<NewValue>(new_value);
             return true;
@@ -180,12 +189,21 @@ struct flag_matcher<flag_form::Both> {
     std::string_view long_form;
 
     constexpr bool matches(const char* arg) {
-        return (arg[0] == '-' && arg[1] == short_form && arg[2] == '\0') ||
-               (long_form == arg);
+        return (arg[0] == '-' && arg[1] == short_form && arg[2] == '\0')
+               || (long_form == arg);
     }
     constexpr bool matches(std::string_view arg) {
-        return (arg[0] == '-' && arg[1] == short_form && arg[2] == '\0') ||
-               (long_form == arg);
+        return (arg[0] == '-' && arg[1] == short_form && arg[2] == '\0')
+               || (long_form == arg);
+    }
+    constexpr size_t match_prefix(std::string_view arg) {
+        if (arg[0] == '-' && arg[1] == short_form) {
+            return 2;
+        } else if (arg.starts_with(long_form)) {
+            return long_form.size();
+        } else {
+            return 0;
+        }
     }
 
     template <class Value, class NewValue = Value>
@@ -198,8 +216,8 @@ struct flag_matcher<flag_form::Both> {
         }
     }
     template <class Value, class NewValue = Value>
-    constexpr bool parse_long_form(const char* arg, Value& value,
-                                   NewValue&& new_value) {
+    constexpr bool
+    parse_long_form(const char* arg, Value& value, NewValue&& new_value) {
         if (long_form == arg) {
             value = std::forward<NewValue>(new_value);
             return true;
@@ -208,8 +226,8 @@ struct flag_matcher<flag_form::Both> {
         }
     }
     template <class Value, class NewValue = Value>
-    constexpr bool parse_long_form(std::string_view arg, Value& value,
-                                   NewValue&& new_value) {
+    constexpr bool
+    parse_long_form(std::string_view arg, Value& value, NewValue&& new_value) {
         if (long_form == arg) {
             value = std::forward<NewValue>(new_value);
             return true;
@@ -228,8 +246,8 @@ struct flag {
     [[no_unique_address]] Tag tag;
     flag_matcher<form> matcher;
     bool value = false;
-    constexpr char const** parse(char const** begin,
-                                 [[maybe_unused]] char const** end) {
+    constexpr char const**
+    parse(char const** begin, [[maybe_unused]] char const** end) {
         if (matcher.matches(begin[0])) {
             value = true;
             return begin + 1;
@@ -323,9 +341,9 @@ template <class T>
 auto parse_value(std::string_view arg, std::optional<T>& value) {
     if constexpr (std::is_constructible_v<T, std::string_view>) {
         value.emplace(arg);
-        return std::true_type{};
+        return std::true_type {};
     } else {
-        T new_value{};
+        T new_value {};
         auto result = parse_value(arg, new_value);
         if (result) {
             value.emplace(std::move(new_value));
@@ -337,9 +355,9 @@ template <class T>
 auto parse_value(std::string_view arg, std::vector<T>& value) {
     if constexpr (std::is_constructible_v<T, std::string_view>) {
         value.emplace_back(arg);
-        return std::true_type{};
+        return std::true_type {};
     } else {
-        T new_value{};
+        T new_value {};
         auto result = parse_value(arg, new_value);
         if (result) {
             value.emplace_back(std::move(new_value));
@@ -358,7 +376,7 @@ constexpr auto parse_value(std::string_view arg, Func& func, T& value) {
         }
     } else {
         value = func(arg);
-        return std::true_type{};
+        return std::true_type {};
     }
 }
 template <class Func, class T>
@@ -372,7 +390,7 @@ auto parse_value(std::string_view arg, Func& func, std::optional<T>& value) {
         }
     } else {
         value.emplace(func(arg));
-        return std::true_type{};
+        return std::true_type {};
     }
 }
 template <class Func, class T>
@@ -386,7 +404,7 @@ auto parse_value(std::string_view arg, Func& func, std::vector<T>& value) {
         }
     } else {
         value.emplace_back(func(arg));
-        return std::true_type{};
+        return std::true_type {};
     }
 }
 } // namespace arglet
@@ -419,6 +437,38 @@ struct value_parser<Elem, void, false> {
         return parse_value(arg, value);
     }
 };
+
+namespace detail {
+template <
+    class EorF,
+    bool Invokable = std::is_invocable_v<EorF, std::string_view>>
+struct deduce_parser_helper;
+template <class EorF>
+struct deduce_parser_helper<EorF, true> {
+    using type =
+        value_parser<std::invoke_result_t<EorF, std::string_view>, EorF, true>;
+};
+template <class EorF>
+struct deduce_parser_helper<EorF, false> {
+    using type = value_parser<EorF, void, false>;
+};
+} // namespace detail
+template <class T>
+struct deduce_parser {
+    using type = typename detail::deduce_parser_helper<T>::type;
+};
+
+template <class T>
+struct deduce_parser<std::optional<T>> {
+    using type = std::optional<T>;
+};
+template <class T>
+struct deduce_parser<std::vector<T>> {
+    using type = std::vector<T>;
+};
+
+template <class EorF>
+using deduce_parser_t = typename deduce_parser<EorF>::type;
 }; // namespace arglet
 
 // arglet::value implementation
@@ -437,25 +487,13 @@ struct value {
     auto const& operator[](Tag) const { return parser.value; }
 };
 
-template <class Tag, class Elem>
-value(Tag, std::vector<Elem>)
-    -> value<Tag, value_parser<std::vector<Elem>, void, false>>;
-template <class Tag, class Elem>
-value(Tag, std::optional<Elem>)
-    -> value<Tag, value_parser<std::optional<Elem>, void, false>>;
-template <class Tag, class ElemOrFunc>
-value(Tag, ElemOrFunc) -> value<
-    Tag,
-    std::conditional_t<
-        std::is_invocable_v<ElemOrFunc, std::string_view>,
-        value_parser<traits::wrap_optional<std::invoke_result_t<ElemOrFunc>>,
-                     ElemOrFunc, true>,
-        value_parser<ElemOrFunc, void, false>>>;
+template <class Tag, class Arg>
+value(Tag, Arg) -> value<Tag, deduce_parser_t<Arg>>;
 template <class Tag, class Elem, class Func>
-value(Tag, Elem, Func) -> value<Tag, value_parser<Elem, Func, false>>;
+value(Tag, Elem, Func) -> value<Tag, value_parser<Elem, Func>>;
 } // namespace arglet
 
-// arglet:::value_flag implementation
+// arglet::value_flag implementation
 namespace arglet {
 template <class Tag, flag_form form, class Parser>
 struct value_flag {
@@ -464,15 +502,12 @@ struct value_flag {
     Parser parser;
 
     constexpr char const** parse(char const** begin, char const** end) {
-        if ((end - begin) >= 2 && matcher.matches(begin[0])) {
+        if ((end - begin) >= 2 && matcher.match(begin[0])) {
             if (parser.parse(begin[1])) {
                 return begin + 2;
-            } else {
-                return begin;
             }
-        } else {
-            return begin;
         }
+        return begin;
     }
     constexpr intptr_t parse(int argc, char const** argv) {
         return parse(argv, argv + argc) - argv;
@@ -480,66 +515,70 @@ struct value_flag {
     auto& operator[](Tag) { return parser.value; }
     auto const& operator[](Tag) const { return parser.value; }
 };
-template <class Tag, class Elem>
-value_flag(Tag, char, std::vector<Elem>)
-    -> value_flag<Tag, flag_form::Short,
-                  value_parser<std::vector<Elem>, void, false>>;
-template <class Tag, size_t N, class Elem>
-value_flag(Tag, string_literal<N>, std::vector<Elem>)
-    -> value_flag<Tag, flag_form::Long,
-                  value_parser<std::vector<Elem>, void, false>>;
-template <class Tag, size_t N, class Elem>
-value_flag(Tag, char, string_literal<N>, std::vector<Elem>)
-    -> value_flag<Tag, flag_form::Both,
-                  value_parser<std::vector<Elem>, void, false>>;
-
-template <class Tag, class Elem>
-value_flag(Tag, char, std::optional<Elem>)
-    -> value_flag<Tag, flag_form::Short,
-                  value_parser<std::optional<Elem>, void, false>>;
-template <class Tag, size_t N, class Elem>
-value_flag(Tag, string_literal<N>, std::optional<Elem>)
-    -> value_flag<Tag, flag_form::Long,
-                  value_parser<std::optional<Elem>, void, false>>;
-template <class Tag, size_t N, class Elem>
-value_flag(Tag, char, string_literal<N>, std::optional<Elem>)
-    -> value_flag<Tag, flag_form::Both,
-                  value_parser<std::optional<Elem>, void, false>>;
-
-template <class Tag, class ElemOrFunc>
-value_flag(Tag, char, ElemOrFunc) -> value_flag<
-    Tag, flag_form::Short,
-    std::conditional_t<
-        std::is_invocable_v<ElemOrFunc, std::string_view>,
-        value_parser<traits::wrap_optional<std::invoke_result_t<ElemOrFunc>>,
-                     ElemOrFunc, true>,
-        value_parser<ElemOrFunc, void, false>>>;
-template <class Tag, size_t N, class ElemOrFunc>
-value_flag(Tag, string_literal<N>, ElemOrFunc) -> value_flag<
-    Tag, flag_form::Long,
-    std::conditional_t<
-        std::is_invocable_v<ElemOrFunc, std::string_view>,
-        value_parser<traits::wrap_optional<std::invoke_result_t<ElemOrFunc>>,
-                     ElemOrFunc, true>,
-        value_parser<ElemOrFunc, void, false>>>;
-template <class Tag, size_t N, class ElemOrFunc>
-value_flag(Tag, char, string_literal<N>, ElemOrFunc) -> value_flag<
-    Tag, flag_form::Both,
-    std::conditional_t<
-        std::is_invocable_v<ElemOrFunc, std::string_view>,
-        value_parser<traits::wrap_optional<std::invoke_result_t<ElemOrFunc>>,
-                     ElemOrFunc, true>,
-        value_parser<ElemOrFunc, void, false>>>;
+template <class Tag, class Arg>
+value_flag(Tag, char, Arg)
+    -> value_flag<Tag, flag_form::Short, deduce_parser_t<Arg>>;
+template <class Tag, size_t N, class Arg>
+value_flag(Tag, string_literal<N>, Arg)
+    -> value_flag<Tag, flag_form::Long, deduce_parser_t<Arg>>;
+template <class Tag, size_t N, class Arg>
+value_flag(Tag, char, string_literal<N>, Arg)
+    -> value_flag<Tag, flag_form::Both, deduce_parser_t<Arg>>;
 
 template <class Tag, class Elem, class Func>
 value_flag(Tag, char, Elem, Func)
-    -> value_flag<Tag, flag_form::Short, value_parser<Elem, Func, false>>;
+    -> value_flag<Tag, flag_form::Short, value_parser<Elem, Func>>;
 template <class Tag, size_t N, class Elem, class Func>
 value_flag(Tag, string_literal<N>, Elem, Func)
-    -> value_flag<Tag, flag_form::Long, value_parser<Elem, Func, false>>;
+    -> value_flag<Tag, flag_form::Long, value_parser<Elem, Func>>;
 template <class Tag, size_t N, class Elem, class Func>
 value_flag(Tag, char, string_literal<N>, Elem, Func)
-    -> value_flag<Tag, flag_form::Both, value_parser<Elem, Func, false>>;
+    -> value_flag<Tag, flag_form::Both, value_parser<Elem, Func>>;
+} // namespace arglet
+
+// arglet::prefixed_value implementation
+namespace arglet {
+template <class Tag, flag_form form, class Parser>
+struct prefixed_value {
+    [[no_unique_address]] Tag tag;
+    flag_matcher<form> matcher;
+    Parser parser;
+
+    constexpr char const** parse(char const** begin, char const** end) {
+        std::string_view flag = begin[0];
+        if (size_t prefix_size = matcher.match_prefix(flag)) {
+            if (prefix_size < flag.size()
+                && parser.parse(flag.substr(prefix_size))) {
+                return begin + 1;
+            }
+        }
+        return begin;
+    }
+    constexpr intptr_t parse(int argc, char const** argv) {
+        return parse(argv, argv + argc) - argv;
+    }
+    auto& operator[](Tag) { return parser.value; }
+    auto const& operator[](Tag) const { return parser.value; }
+};
+template <class Tag, class Arg>
+prefixed_value(Tag, char, Arg)
+    -> prefixed_value<Tag, flag_form::Short, deduce_parser_t<Arg>>;
+template <class Tag, size_t N, class Arg>
+prefixed_value(Tag, string_literal<N>, Arg)
+    -> prefixed_value<Tag, flag_form::Long, deduce_parser_t<Arg>>;
+template <class Tag, size_t N, class Arg>
+prefixed_value(Tag, char, string_literal<N>, Arg)
+    -> prefixed_value<Tag, flag_form::Both, deduce_parser_t<Arg>>;
+
+template <class Tag, class Elem, class Func>
+prefixed_value(Tag, char, Elem, Func)
+    -> prefixed_value<Tag, flag_form::Short, value_parser<Elem, Func>>;
+template <class Tag, size_t N, class Elem, class Func>
+prefixed_value(Tag, string_literal<N>, Elem, Func)
+    -> prefixed_value<Tag, flag_form::Long, value_parser<Elem, Func>>;
+template <class Tag, size_t N, class Elem, class Func>
+prefixed_value(Tag, char, string_literal<N>, Elem, Func)
+    -> prefixed_value<Tag, flag_form::Both, value_parser<Elem, Func>>;
 } // namespace arglet
 
 // arglet::item implementation
@@ -555,11 +594,13 @@ item(Tag, std::vector<Elem>)
 template <class Tag, class F>
 item(Tag, F) -> item<
     Tag,
-    value_parser<std::vector<traits::unwrap_optional<std::invoke_result_t<F>>>,
-                 F, true>>;
+    value_parser<
+        std::vector<traits::unwrap_optional<std::invoke_result_t<F>>>,
+        F,
+        true>>;
 template <class Tag, class Elem, class Func>
 item(Tag, std::vector<Elem>, Func)
-    -> item<Tag, value_parser<Elem, Func, false>>;
+    -> item<Tag, value_parser<std::vector<Elem>, Func>>;
 } // namespace arglet
 
 // arglet::string implementation
@@ -581,7 +622,7 @@ namespace arglet {
 template <class T, flag_form type>
 struct option {
     flag_matcher<type> matcher;
-    T option_value{};
+    T option_value {};
     template <class U>
     bool match_assign(std::string_view arg, U& value) {
         if (matcher.matches(arg)) {
@@ -623,8 +664,7 @@ struct sequence : Arg... {
     constexpr char const** parse(char const** begin, char const** end) {
         // this is cast to void because we don't need the result of this
         // fold expression. Casting it to void prevents an unused value warning
-        (void)((begin != end) && ... &&
-               (begin = Arg::parse(begin, end), begin != end));
+        (void)((begin != end) && ... && (begin = Arg::parse(begin, end), begin != end));
         return begin;
     }
     constexpr intptr_t parse(int argc, char const** argv) {
@@ -648,8 +688,9 @@ struct group : Arg... {
             // We have args to parse as long as begin != end
             // And as long as at least one argument is successfully parsed.
             // If an argument is successfully parsed, then current < begin
-            has_args = ((begin = Arg::parse(begin, end), begin != end) && ... &&
-                        (current < begin));
+            has_args = ((begin = Arg::parse(begin, end), begin != end)
+                     && ...
+                     && (current < begin));
         }
         return begin;
     }
@@ -711,8 +752,8 @@ struct option_set {
     constexpr static auto indicies =
         std::make_index_sequence<sizeof...(forms)>();
     template <size_t... I>
-    constexpr char const** parse_(const char** begin, const char**,
-                                  std::index_sequence<I...>) {
+    constexpr char const**
+    parse_(const char** begin, const char**, std::index_sequence<I...>) {
         std::string_view arg = begin[0];
         return begin + (options[index<I>()].match_assign(arg, value) || ...);
     }
@@ -721,22 +762,22 @@ struct option_set {
         return (options[index<I>()].match_assign_char(c, value) || ...);
     }
     template <size_t... I>
-    constexpr bool parse_long_form_(char const* arg,
-                                    std::index_sequence<I...>) {
+    constexpr bool
+    parse_long_form_(char const* arg, std::index_sequence<I...>) {
         return (options[index<I>()].match_assign_long_form(arg, value) || ...);
     }
 
    public:
     using state_t = std::conditional_t<is_optional, std::optional<T>, T>;
     [[no_unique_address]] Tag tag;
-    state_t value{};
+    state_t value {};
     util::type_array<option<T, forms>...> options;
 
     auto& operator[](Tag) { return value; }
     auto const& operator[](Tag) const { return value; }
 
-    constexpr char const** parse(char const** begin,
-                                 [[maybe_unused]] char const** end) {
+    constexpr char const**
+    parse(char const** begin, [[maybe_unused]] char const** end) {
         return parse_(begin, end, indicies);
     }
     constexpr intptr_t parse(int argc, char const** argv) {
@@ -769,8 +810,8 @@ struct command_set {
     constexpr static auto indicies =
         std::make_index_sequence<sizeof...(forms)>();
     template <size_t... I>
-    constexpr char const** parse_(const char** begin, const char**,
-                                  std::index_sequence<I...>) {
+    constexpr char const**
+    parse_(const char** begin, const char**, std::index_sequence<I...>) {
         std::string_view arg = begin[0];
         command_name = arg;
         return begin + (options[index<I>()].match_assign(arg, value) || ...);
@@ -778,12 +819,12 @@ struct command_set {
 
    public:
     [[no_unique_address]] Tag tag;
-    command_fn value{};
+    command_fn value {};
     util::type_array<option<command_fn, forms>...> options;
     std::string_view command_name;
 
-    constexpr char const** parse(char const** begin,
-                                 [[maybe_unused]] char const** end) {
+    constexpr char const**
+    parse(char const** begin, [[maybe_unused]] char const** end) {
         return parse_(begin, end, indicies);
     }
     constexpr intptr_t parse(int argc, char const** argv) {
@@ -806,7 +847,8 @@ struct command_set {
             } else {
                 printf(
                     "Unrecognized subcommand '%.*s'. Try --help for usage.\n",
-                    (int)command_name.size(), command_name.data());
+                    (int)command_name.size(),
+                    command_name.data());
             }
             return 1;
         }
@@ -833,8 +875,10 @@ list(Tag, std::vector<Elem>)
 template <class Tag, class F>
 list(Tag, F) -> list<
     Tag,
-    value_parser<std::vector<traits::unwrap_optional<std::invoke_result_t<F>>>,
-                 F, true>>;
+    value_parser<
+        std::vector<traits::unwrap_optional<std::invoke_result_t<F>>>,
+        F,
+        true>>;
 template <class Tag, class Elem, class Func>
 list(Tag, std::vector<Elem>, Func)
     -> list<Tag, value_parser<Elem, Func, false>>;
