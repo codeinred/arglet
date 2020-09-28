@@ -2,8 +2,10 @@
 #include <iostream>
 
 namespace tags {
-struct program_name_t {} program_name;
-struct subcommand_t {} subcommand;
+struct program_name_t {
+} program_name;
+struct subcommand_t {
+} subcommand;
 } // namespace tags
 
 int hello(int, char const**);

@@ -2,10 +2,14 @@
 #include <iostream>
 
 namespace tags {
-struct hello_t {} hello;
-struct goodbye_t {} goodbye;
-struct print_name_t {} print_name;
-struct program_name_t {} program_name;
+struct hello_t {
+} hello;
+struct goodbye_t {
+} goodbye;
+struct print_name_t {
+} print_name;
+struct program_name_t {
+} program_name;
 } // namespace tags
 
 auto get_parser() {
@@ -23,7 +27,7 @@ int main(int argc, char const* argv[]) {
     auto parser = get_parser();
     int num_args_parsed = parser.parse(argc, argv);
 
-    if(std::optional name = parser[tags::program_name]) {
+    if (std::optional name = parser[tags::program_name]) {
         std::cout << ">> Running " << name.value() << std::endl;
     }
     if (parser[tags::hello]) {
@@ -33,8 +37,8 @@ int main(int argc, char const* argv[]) {
         std::cout << ">>  goodbye, world!" << std::endl;
     }
 
-    if(num_args_parsed < argc) {
-        for(int i = num_args_parsed; i < argc; i++) {
+    if (num_args_parsed < argc) {
+        for (int i = num_args_parsed; i < argc; i++) {
             std::cout << "Couldn't parse: " << argv[i] << '\n';
         }
         return 1;
