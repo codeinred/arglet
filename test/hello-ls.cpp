@@ -16,13 +16,13 @@ constexpr tag<7> sort_method;
 constexpr tag<8> list_recurse;
 constexpr tag<9> block_size;
 constexpr tag<10> files;
+constexpr tag<11> column_width;
 } // namespace tags
 enum class show_mode { regular, almost_all, all };
 enum class size_display_mode { bytes, kibi, kilo };
 enum class color_mode { always, never, automatic };
 enum class sort_mode { none, file_size, time, extension };
-constexpr auto parse_block_size =
-    [](std::string_view arg) -> unsigned long long {
+auto parse_block_size(std::string_view arg) -> unsigned long long {
     unsigned long long value = 0;
     auto [scan, errc] = std::from_chars(arg.begin(), arg.end(), value);
     if (scan == arg.end()) {
@@ -95,13 +95,62 @@ auto get_parser() {
                     option {'X', sort_mode::extension}}},
             prefixed_value {
                 block_size, "--block-size=", 1024ull, parse_block_size},
+            prefixed_value {column_width, 'w', "--width=", 80},
             item {files, std::vector<std::filesystem::path>()}}};
+}
+#define DISP_ENUM(val)                                                         \
+    case val: out << #val; break;
+
+std::ostream& operator<<(std::ostream& out, show_mode mode) {
+    switch (mode) {
+        DISP_ENUM(show_mode::all)
+        DISP_ENUM(show_mode::regular)
+        DISP_ENUM(show_mode::almost_all)
+    }
+    return out;
+}
+
+std::ostream& operator<<(std::ostream& out, size_display_mode mode) {
+    switch (mode) {
+        DISP_ENUM(size_display_mode::bytes)
+        DISP_ENUM(size_display_mode::kibi)
+        DISP_ENUM(size_display_mode::kilo)
+    }
+    return out;
+}
+
+std::ostream& operator<<(std::ostream& out, color_mode mode) {
+    switch (mode) {
+        DISP_ENUM(color_mode::always)
+        DISP_ENUM(color_mode::automatic)
+        DISP_ENUM(color_mode::never)
+    }
+    return out;
+}
+
+std::ostream& operator<<(std::ostream& out, sort_mode mode) {
+    switch (mode) {
+        DISP_ENUM(sort_mode::extension)
+        DISP_ENUM(sort_mode::file_size)
+        DISP_ENUM(sort_mode::time)
+        DISP_ENUM(sort_mode::none)
+    }
+    return out;
+}
+template <class T>
+std::ostream& operator<<(std::ostream& out, std::vector<T> const& v) {
+    for (auto& val : v) {
+        out << val << ' ';
+    }
+    return out;
+}
+template <class T, size_t... I>
+void print_values(T& parser, std::index_sequence<I...>) {
+    ((std::cout << parser[arglet::tag<I>()] << '\n'), ...);
 }
 
 int main(int argc, char const** argv) {
     auto parser = get_parser();
     parser.parse(argc, argv);
-    for (auto& file : parser[tags::files]) {
-        std::cout << file << '\n';
-    }
+    print_values(parser, std::make_index_sequence<12>());
 }
