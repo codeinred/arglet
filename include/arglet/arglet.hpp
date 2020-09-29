@@ -33,9 +33,11 @@ struct tuple_elem {
 
     [[no_unique_address]] T elem;
 
-    constexpr decltype(auto) operator[](index<I>) & { return (elem); }
-    constexpr decltype(auto) operator[](index<I>) const& { return (elem); }
-    constexpr decltype(auto) operator[](index<I>) && {
+    constexpr decltype(auto) operator[](index<I>) & noexcept { return (elem); }
+    constexpr decltype(auto) operator[](index<I>) const& noexcept {
+        return (elem);
+    }
+    constexpr decltype(auto) operator[](index<I>) && noexcept {
         return (std::move(*this).elem);
     }
 };
@@ -120,18 +122,22 @@ struct flag_matcher;
 template <>
 struct flag_matcher<flag_form::Short> {
     char short_form;
-    constexpr bool matches(const char* arg) {
+    constexpr bool matches(const char* arg) const noexcept {
         return arg[0] == '-' && arg[1] == short_form && arg[2] == '\0';
     }
-    constexpr bool matches(std::string_view arg) {
+    constexpr bool matches(std::string_view arg) const noexcept {
         return arg[0] == '-' && arg[1] == short_form && arg[2] == '\0';
     }
-    constexpr size_t match_prefix(std::string_view arg) {
+    constexpr size_t match_prefix(std::string_view arg) const noexcept {
         return (arg[0] == '-' && arg[1] == short_form) ? 2 : 0;
+    }
+    constexpr bool matches_short_form(std::string_view arg) const noexcept {
+        return arg.size() == 2 && arg[0] == '-' && arg[1] == short_form;
     }
 
     template <class Value, class NewValue = Value>
-    constexpr bool parse_char(char c, Value& value, NewValue&& new_value) {
+    constexpr bool parse_char(char c, Value& value, NewValue&& new_value) const
+        noexcept(std::is_nothrow_assignable_v<Value&, NewValue>) {
         if (short_form == c) {
             value = std::forward<NewValue>(new_value);
             return true;
@@ -142,29 +148,37 @@ struct flag_matcher<flag_form::Short> {
     constexpr bool parse_long_form(
         util::ignore_function_arg,
         util::ignore_function_arg,
-        util::ignore_function_arg) {
+        util::ignore_function_arg) const noexcept {
         return false;
     }
 };
 template <>
 struct flag_matcher<flag_form::Long> {
     std::string_view long_form;
-
-    constexpr bool matches(const char* arg) { return long_form == arg; }
-    constexpr bool matches(std::string_view arg) { return long_form == arg; }
-    constexpr size_t match_prefix(std::string_view arg) {
+    constexpr bool matches(const char* arg) const noexcept {
+        return long_form == arg;
+    }
+    constexpr bool matches(std::string_view arg) const noexcept {
+        return long_form == arg;
+    }
+    constexpr size_t match_prefix(std::string_view arg) const noexcept {
         return arg.starts_with(long_form) ? long_form.size() : 0;
+    }
+    constexpr bool
+    matches_short_form(util::ignore_function_arg) const noexcept {
+        return false;
     }
 
     constexpr bool parse_char(
         util::ignore_function_arg,
         util::ignore_function_arg,
-        util::ignore_function_arg) {
+        util::ignore_function_arg) const noexcept {
         return false;
     }
     template <class Value, class NewValue = Value>
     constexpr bool
-    parse_long_form(const char* arg, Value& value, NewValue&& new_value) {
+    parse_long_form(const char* arg, Value& value, NewValue&& new_value) const
+        noexcept(std::is_nothrow_assignable_v<Value&, NewValue>) {
         if (long_form == arg) {
             value = std::forward<NewValue>(new_value);
             return true;
@@ -173,8 +187,9 @@ struct flag_matcher<flag_form::Long> {
         }
     }
     template <class Value, class NewValue = Value>
-    constexpr bool
-    parse_long_form(std::string_view arg, Value& value, NewValue&& new_value) {
+    constexpr bool parse_long_form(
+        std::string_view arg, Value& value, NewValue&& new_value) const
+        noexcept(std::is_nothrow_assignable_v<Value&, NewValue>) {
         if (long_form == arg) {
             value = std::forward<NewValue>(new_value);
             return true;
@@ -188,15 +203,15 @@ struct flag_matcher<flag_form::Both> {
     char short_form;
     std::string_view long_form;
 
-    constexpr bool matches(const char* arg) {
+    constexpr bool matches(const char* arg) const noexcept {
         return (arg[0] == '-' && arg[1] == short_form && arg[2] == '\0')
                || (long_form == arg);
     }
-    constexpr bool matches(std::string_view arg) {
+    constexpr bool matches(std::string_view arg) const noexcept {
         return (arg[0] == '-' && arg[1] == short_form && arg[2] == '\0')
                || (long_form == arg);
     }
-    constexpr size_t match_prefix(std::string_view arg) {
+    constexpr size_t match_prefix(std::string_view arg) const noexcept {
         if (arg[0] == '-' && arg[1] == short_form) {
             return 2;
         } else if (arg.starts_with(long_form)) {
@@ -205,9 +220,13 @@ struct flag_matcher<flag_form::Both> {
             return 0;
         }
     }
+    constexpr bool matches_short_form(std::string_view arg) const noexcept {
+        return arg.size() == 2 && arg[0] == '-' && arg[1] == short_form;
+    }
 
     template <class Value, class NewValue = Value>
-    constexpr bool parse_char(char c, Value& value, NewValue&& new_value) {
+    constexpr bool parse_char(char c, Value& value, NewValue&& new_value) const
+        noexcept(std::is_nothrow_assignable_v<Value&, NewValue>) {
         if (short_form == c) {
             value = std::forward<NewValue>(new_value);
             return true;
@@ -217,7 +236,8 @@ struct flag_matcher<flag_form::Both> {
     }
     template <class Value, class NewValue = Value>
     constexpr bool
-    parse_long_form(const char* arg, Value& value, NewValue&& new_value) {
+    parse_long_form(const char* arg, Value& value, NewValue&& new_value) const
+        noexcept(std::is_nothrow_assignable_v<Value&, NewValue>) {
         if (long_form == arg) {
             value = std::forward<NewValue>(new_value);
             return true;
@@ -226,8 +246,9 @@ struct flag_matcher<flag_form::Both> {
         }
     }
     template <class Value, class NewValue = Value>
-    constexpr bool
-    parse_long_form(std::string_view arg, Value& value, NewValue&& new_value) {
+    constexpr bool parse_long_form(
+        std::string_view arg, Value& value, NewValue&& new_value) const
+        noexcept(std::is_nothrow_assignable_v<Value&, NewValue>) {
         if (long_form == arg) {
             value = std::forward<NewValue>(new_value);
             return true;
@@ -246,8 +267,7 @@ struct flag {
     [[no_unique_address]] Tag tag;
     flag_matcher<form> matcher;
     bool value = false;
-    constexpr char const**
-    parse(char const** begin, [[maybe_unused]] char const** end) {
+    constexpr char const** parse(char const** begin, char const**) {
         if (matcher.matches(begin[0])) {
             value = true;
             return begin + 1;
@@ -292,15 +312,12 @@ constexpr ignore_arg_t ignore_arg = {};
 
 // arglet::parse_value implementation
 namespace arglet {
-std::true_type parse_value(std::string_view arg, std::string& value) {
+std::true_type
+parse_value(std::string_view arg, std::string_view& value) noexcept {
     value = arg;
     return {};
 }
-std::true_type parse_value(std::string_view arg, std::string_view& value) {
-    value = arg;
-    return {};
-}
-bool parse_value(std::string_view arg, std::int32_t& value) {
+bool parse_value(std::string_view arg, std::int32_t& value) noexcept {
     auto [end, errc] = std::from_chars(arg.begin(), arg.end(), value);
     if (end == arg.end()) {
         return true;
@@ -308,7 +325,7 @@ bool parse_value(std::string_view arg, std::int32_t& value) {
         return false;
     }
 }
-bool parse_value(std::string_view arg, std::uint32_t& value) {
+bool parse_value(std::string_view arg, std::uint32_t& value) noexcept {
     auto [end, errc] = std::from_chars(arg.begin(), arg.end(), value);
     if (end == arg.end()) {
         return true;
@@ -316,7 +333,7 @@ bool parse_value(std::string_view arg, std::uint32_t& value) {
         return false;
     }
 }
-bool parse_value(std::string_view arg, std::int64_t& value) {
+bool parse_value(std::string_view arg, std::int64_t& value) noexcept {
     auto [end, errc] = std::from_chars(arg.begin(), arg.end(), value);
     if (end == arg.end()) {
         return true;
@@ -324,7 +341,7 @@ bool parse_value(std::string_view arg, std::int64_t& value) {
         return false;
     }
 }
-bool parse_value(std::string_view arg, std::uint64_t& value) {
+bool parse_value(std::string_view arg, std::uint64_t& value) noexcept {
     auto [end, errc] = std::from_chars(arg.begin(), arg.end(), value);
     if (end == arg.end()) {
         return true;
@@ -333,7 +350,8 @@ bool parse_value(std::string_view arg, std::uint64_t& value) {
     }
 }
 template <class T>
-constexpr std::true_type parse_value(std::string_view arg, T& value) {
+constexpr std::true_type parse_value(std::string_view arg, T& value) noexcept(
+    std::is_nothrow_assignable_v<T&, std::string_view>) {
     value = arg;
     return {};
 }
@@ -369,7 +387,7 @@ template <class Func, class T>
 constexpr auto parse_value(std::string_view arg, Func& func, T& value) {
     if constexpr (traits::is_optional_v<decltype(func(arg))>) {
         if (auto result = func(arg)) {
-            value = *result;
+            value = *std::move(result);
             return true;
         } else {
             return false;
@@ -546,6 +564,13 @@ struct prefixed_value {
 
     constexpr char const** parse(char const** begin, char const** end) {
         std::string_view flag = begin[0];
+        if (matcher.matches_short_form(flag) && (end - begin) >= 2) {
+            if (parser.parse(std::string_view(begin[1]))) {
+                return begin + 2;
+            } else {
+                return begin;
+            }
+        }
         if (size_t prefix_size = matcher.match_prefix(flag)) {
             if (prefix_size < flag.size()
                 && parser.parse(flag.substr(prefix_size))) {
@@ -688,9 +713,9 @@ struct group : Arg... {
             // We have args to parse as long as begin != end
             // And as long as at least one argument is successfully parsed.
             // If an argument is successfully parsed, then current < begin
-            has_args = ((begin = Arg::parse(begin, end), begin != end)
-                     && ...
-                     && (current < begin));
+            has_args =
+                ((begin = Arg::parse(begin, end), begin != end) && ...
+                 && (current < begin));
         }
         return begin;
     }
