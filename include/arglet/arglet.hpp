@@ -19,6 +19,10 @@ using index = std::integral_constant<size_t, I>;
 template <size_t I>
 using tag = std::integral_constant<size_t, I>;
 
+// tn<I> is a std::integral_constant<size_t, I>
+template <size_t I>
+constexpr std::integral_constant<size_t, I> tag_v {};
+
 template <size_t N>
 using string_literal = char const (&)[N];
 
@@ -76,7 +80,7 @@ struct ignore_function_arg {
 template <class... T>
 auto save_state(T... values) {
     return [... saved_state = values](T&... values_to_restore) {
-        ((void)(values_to_restore = saved_state), ...);
+        (void(values_to_restore = saved_state), ...);
     };
 }
 
@@ -84,6 +88,8 @@ template <class... T>
 struct type_array : detail::partial_tuple<0, T...> {
     using detail::partial_tuple<0, T...>::operator[];
 };
+template <class... T>
+type_array(T...) -> type_array<T...>;
 } // namespace arglet::util
 
 // arglet::is_optional implementation
@@ -689,7 +695,9 @@ struct sequence : Arg... {
     constexpr char const** parse(char const** begin, char const** end) {
         // this is cast to void because we don't need the result of this
         // fold expression. Casting it to void prevents an unused value warning
-        (void)((begin != end) && ... && (begin = Arg::parse(begin, end), begin != end));
+        if(begin != end) {
+            (void)((begin = Arg::parse(begin, end), begin != end) && ...);
+        }
         return begin;
     }
     constexpr intptr_t parse(int argc, char const** argv) {
@@ -707,15 +715,13 @@ struct group : Arg... {
     using Arg::operator[]...;
 
     constexpr char const** parse(char const** begin, char const** end) {
-        bool has_args = begin != end;
-        while (has_args) {
-            auto current = begin;
+        bool has_args = true;
+        while (begin != end && has_args) {
+            auto old = begin;
             // We have args to parse as long as begin != end
             // And as long as at least one argument is successfully parsed.
             // If an argument is successfully parsed, then current < begin
-            has_args =
-                ((begin = Arg::parse(begin, end), begin != end) && ...
-                 && (current < begin));
+            has_args = ((begin = Arg::parse(begin, end), begin != old) || ...);
         }
         return begin;
     }
@@ -738,11 +744,9 @@ struct flag_group : Flag... {
             if (this_arg[0] == '-') {
                 bool successful = true;
                 auto reset_state = util::save_state(Flag::value...);
-
                 int i = 1;
                 while (char c = this_arg[i++]) {
-                    bool any_flag_matches = (Flag::parse_char(c) || ...);
-                    if (!any_flag_matches) {
+                    if (!(Flag::parse_char(c) || ...)) {
                         successful = false;
                         reset_state(Flag::value...);
                         break;
@@ -780,16 +784,16 @@ struct option_set {
     constexpr char const**
     parse_(const char** begin, const char**, std::index_sequence<I...>) {
         std::string_view arg = begin[0];
-        return begin + (options[index<I>()].match_assign(arg, value) || ...);
+        return begin + (options[tag_v<I>].match_assign(arg, value) || ...);
     }
     template <size_t... I>
     constexpr bool parse_char_(char c, std::index_sequence<I...>) {
-        return (options[index<I>()].match_assign_char(c, value) || ...);
+        return (options[tag_v<I>].match_assign_char(c, value) || ...);
     }
     template <size_t... I>
     constexpr bool
     parse_long_form_(char const* arg, std::index_sequence<I...>) {
-        return (options[index<I>()].match_assign_long_form(arg, value) || ...);
+        return (options[tag_v<I>].match_assign_long_form(arg, value) || ...);
     }
 
    public:
@@ -924,3 +928,20 @@ constexpr tag_from_digits<D...> operator""_tag() {
     return {};
 }
 } // namespace arglet::literals
+
+// arglet::test_parser
+namespace arglet::test {
+template <class Parser, class... T>
+bool check(Parser& p, T... expected) {
+    return [&]<size_t... I>(std::index_sequence<I...>) {
+        return ((p[tag<I>()] == expected) && ...);
+    }(std::make_index_sequence<sizeof...(T)>());
+}
+
+template <class Parser, size_t... N>
+void test(Parser& p, string_literal<N>... args) {
+    char const* arg_array[sizeof...(N) + 2]{"./test_parser", args..., nullptr};
+    p.parse(arg_array, sizeof...(N) + 1);
+}
+}
+
