@@ -931,6 +931,8 @@ constexpr tag_from_digits<D...> operator""_tag() {
 
 // arglet::test_parser
 namespace arglet::test {
+// Test that the values parsed match the expected ones
+// goes in order of tag<0>, tag<1>, and so on
 template <class Parser, class... T>
 bool check(Parser& p, T... expected) {
     return [&]<size_t... I>(std::index_sequence<I...>) {
@@ -938,10 +940,11 @@ bool check(Parser& p, T... expected) {
     }(std::make_index_sequence<sizeof...(T)>());
 }
 
+// Test that all the arguments were parsed
 template <class Parser, size_t... N>
-void test(Parser& p, string_literal<N>... args) {
+bool test(Parser& p, string_literal<N>... args) {
     char const* arg_array[sizeof...(N) + 2]{"./test_parser", args..., nullptr};
-    p.parse(sizeof...(N) + 1, arg_array);
+    return (sizeof...(N) + 1) == p.parse(sizeof...(N) + 1, arg_array);
 }
 }
 
