@@ -941,7 +941,7 @@ bool check(Parser& p, T... expected) {
 template <class Parser, size_t... N>
 void test(Parser& p, string_literal<N>... args) {
     char const* arg_array[sizeof...(N) + 2]{"./test_parser", args..., nullptr};
-    p.parse(arg_array, sizeof...(N) + 1);
+    p.parse(sizeof...(N) + 1, arg_array);
 }
 }
 
