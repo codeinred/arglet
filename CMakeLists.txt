@@ -33,12 +33,21 @@ install(
 )
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+
+    file(GLOB all_examples "examples/*.cpp")
+
+    foreach(file_name ${all_examples})
+        get_filename_component(test_name ${file_name} NAME_WE)
+        add_executable("${test_name}" "${file_name}")
+        target_link_libraries("${test_name}" PRIVATE arglet)
+    endforeach()
+endif()
+
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     include(CTest)
 endif()
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_TESTING)
-    set(THREADS_PREFER_PTHREAD_FLAG ON)
-    find_package(Threads REQUIRED)
 
     file(GLOB all_tests "test/*.cpp")
 
@@ -46,7 +55,6 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_TESTING)
         get_filename_component(test_name ${file_name} NAME_WE)
         add_executable("${test_name}" "${file_name}")
         target_link_libraries("${test_name}" PRIVATE arglet)
-        target_link_libraries("${test_name}" PRIVATE Threads::Threads)
         add_test(NAME "${test_name}" COMMAND "${test_name}")
     endforeach()
 endif()
