@@ -471,7 +471,7 @@ struct deduce_parser_helper;
 template <class EorF>
 struct deduce_parser_helper<EorF, true> {
     using type =
-        value_parser<std::invoke_result_t<EorF, std::string_view>, EorF, true>;
+        value_parser<traits::wrap_optional<std::invoke_result_t<EorF, std::string_view>>, EorF, true>;
 };
 template <class EorF>
 struct deduce_parser_helper<EorF, false> {
@@ -627,7 +627,7 @@ template <class Tag, class F>
 item(Tag, F) -> item<
     Tag,
     value_parser<
-        std::vector<traits::unwrap_optional<std::invoke_result_t<F>>>,
+        std::vector<traits::unwrap_optional<std::invoke_result_t<F, std::string_view>>>,
         F,
         true>>;
 template <class Tag, class Elem, class Func>
@@ -907,7 +907,7 @@ template <class Tag, class F>
 list(Tag, F) -> list<
     Tag,
     value_parser<
-        std::vector<traits::unwrap_optional<std::invoke_result_t<F>>>,
+        std::vector<traits::unwrap_optional<std::invoke_result_t<F, std::string_view>>>,
         F,
         true>>;
 template <class Tag, class Elem, class Func>
