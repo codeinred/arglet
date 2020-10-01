@@ -325,32 +325,36 @@ parse_value(std::string_view arg, std::string_view& value) noexcept {
     return {};
 }
 bool parse_value(std::string_view arg, std::int32_t& value) noexcept {
-    auto [end, errc] = std::from_chars(arg.data(), arg.data() + arg.size(), value);
-    if (end == arg.end()) {
+    auto [end, errc] =
+        std::from_chars(arg.data(), arg.data() + arg.size(), value);
+    if (end == arg.data() + arg.size()) {
         return true;
     } else {
         return false;
     }
 }
 bool parse_value(std::string_view arg, std::uint32_t& value) noexcept {
-    auto [end, errc] = std::from_chars(arg.data(), arg.data() + arg.size(), value);
-    if (end == arg.end()) {
+    auto [end, errc] =
+        std::from_chars(arg.data(), arg.data() + arg.size(), value);
+    if (end == arg.data() + arg.size()) {
         return true;
     } else {
         return false;
     }
 }
 bool parse_value(std::string_view arg, std::int64_t& value) noexcept {
-    auto [end, errc] = std::from_chars(arg.data(), arg.data() + arg.size(), value);
-    if (end == arg.end()) {
+    auto [end, errc] =
+        std::from_chars(arg.data(), arg.data() + arg.size(), value);
+    if (end == arg.data() + arg.size()) {
         return true;
     } else {
         return false;
     }
 }
 bool parse_value(std::string_view arg, std::uint64_t& value) noexcept {
-    auto [end, errc] = std::from_chars(arg.data(), arg.data() + arg.size(), value);
-    if (end == arg.end()) {
+    auto [end, errc] =
+        std::from_chars(arg.data(), arg.data() + arg.size(), value);
+    if (end == arg.data() + arg.size()) {
         return true;
     } else {
         return false;
@@ -470,8 +474,10 @@ template <
 struct deduce_parser_helper;
 template <class EorF>
 struct deduce_parser_helper<EorF, true> {
-    using type =
-        value_parser<traits::wrap_optional<std::invoke_result_t<EorF, std::string_view>>, EorF, true>;
+    using type = value_parser<
+        traits::wrap_optional<std::invoke_result_t<EorF, std::string_view>>,
+        EorF,
+        true>;
 };
 template <class EorF>
 struct deduce_parser_helper<EorF, false> {
@@ -627,7 +633,8 @@ template <class Tag, class F>
 item(Tag, F) -> item<
     Tag,
     value_parser<
-        std::vector<traits::unwrap_optional<std::invoke_result_t<F, std::string_view>>>,
+        std::vector<
+            traits::unwrap_optional<std::invoke_result_t<F, std::string_view>>>,
         F,
         true>>;
 template <class Tag, class Elem, class Func>
@@ -907,7 +914,8 @@ template <class Tag, class F>
 list(Tag, F) -> list<
     Tag,
     value_parser<
-        std::vector<traits::unwrap_optional<std::invoke_result_t<F, std::string_view>>>,
+        std::vector<
+            traits::unwrap_optional<std::invoke_result_t<F, std::string_view>>>,
         F,
         true>>;
 template <class Tag, class Elem, class Func>
@@ -976,9 +984,9 @@ bool check(test_result<Parser> const& p, T... expected) {
         }
         fprintf(stderr, "\n");
     }
-    if(!p.all_parsed()) {
+    if (!p.all_parsed()) {
         fprintf(stderr, "Unparsed args: ");
-        for(size_t i = p.num_parsed; i < p.args.size(); i++) {
+        for (size_t i = p.num_parsed; i < p.args.size(); i++) {
             fprintf(stderr, "\n  %s", p.args[i].data());
         }
         fprintf(stderr, "\n");
