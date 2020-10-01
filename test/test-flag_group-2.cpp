@@ -189,4 +189,6 @@ int main(int argc, char const* argv[]) {
     good = good && test(parser, "--print-name", "--dont-print-name");
     good = good && check(parser, false, false, false);
     parser = get_parser(); // Reset the parser
+
+    return !good;
 }
