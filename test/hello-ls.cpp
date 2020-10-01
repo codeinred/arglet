@@ -146,7 +146,7 @@ std::ostream& operator<<(std::ostream& out, std::vector<T> const& v) {
 }
 template <class T, size_t... I>
 void print_values(T& parser, std::index_sequence<I...>) {
-    ((std::cout << parser[arglet::tag_v<I>] << '\n'), ...);
+    ((std::cout << "tag " << I << ":\t" << parser[arglet::tag_v<I>] << '\n'), ...);
 }
 
 int main(int argc, char const** argv) {

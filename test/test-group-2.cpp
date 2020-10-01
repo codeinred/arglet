@@ -23,19 +23,21 @@ int main() {
     using namespace std::literals;
     using namespace arglet::test;
     bool good = true;
-    auto parser = get_parser();
 
-    good = good && test(parser, "x", "y", "--hello");
-    good = good && check(parser, true, false, std::vector{"x"sv, "y"sv});
-    parser = get_parser();
+    {
+        auto result = test(get_parser(), "x", "y", "--hello");
+        good = good && check(result, true, false, std::vector {"x"sv, "y"sv});
+    }
 
-    good = good && test(parser, "x", "y", "--goodbye");
-    good = good && check(parser, false, true, std::vector{"x"sv, "y"sv});
-    parser = get_parser();
+    {
+        auto result = test(get_parser(), "x", "y", "--goodbye");
+        good = good && check(result, false, true, std::vector {"x"sv, "y"sv});
+    }
 
-    good = good && test(parser, "x", "y", "--goodbye", "--hello");
-    good = good && check(parser, true, true, std::vector{"x"sv, "y"sv});
-    parser = get_parser();
+    {
+        auto result = test(get_parser(), "x", "y", "--goodbye", "--hello");
+        good = good && check(result, true, true, std::vector {"x"sv, "y"sv});
+    }
 
     return !good;
 }

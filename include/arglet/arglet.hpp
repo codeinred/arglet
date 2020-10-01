@@ -695,7 +695,7 @@ struct sequence : Arg... {
     constexpr char const** parse(char const** begin, char const** end) {
         // this is cast to void because we don't need the result of this
         // fold expression. Casting it to void prevents an unused value warning
-        if(begin != end) {
+        if (begin != end) {
             (void)((begin = Arg::parse(begin, end), begin != end) && ...);
         }
         return begin;
@@ -867,6 +867,7 @@ struct command_set {
     }
     constexpr command_fn get_default_command() const noexcept { return value; }
     constexpr operator bool() const { return value != nullptr; }
+    constexpr operator command_fn() const { return value; }
     int operator()(int argc, char const** argv) const {
         if (value) {
             return value(argc, argv);
@@ -931,20 +932,68 @@ constexpr tag_from_digits<D...> operator""_tag() {
 
 // arglet::test_parser
 namespace arglet::test {
+template <class Parser>
+struct test_result : Parser {
+    using Parser::operator[];
+    intptr_t num_parsed;
+    std::vector<std::string_view> args;
+    bool all_parsed() const { return num_parsed == args.size(); }
+};
+template <class Parser>
+test_result(Parser, intptr_t, std::vector<std::string_view>)
+    -> test_result<Parser>;
 // Test that the values parsed match the expected ones
 // goes in order of tag<0>, tag<1>, and so on
 template <class Parser, class... T>
-bool check(Parser& p, T... expected) {
-    return [&]<size_t... I>(std::index_sequence<I...>) {
-        return ((p[tag<I>()] == expected) && ...);
-    }(std::make_index_sequence<sizeof...(T)>());
+bool check(test_result<Parser>& p, T... expected) {
+    std::vector<int> incorrect;
+    auto check_val = [&](auto tag, auto& ex) {
+        if (p[tag] != ex) {
+            incorrect.push_back((int)tag);
+        }
+    };
+    [&]<size_t... I>(std::index_sequence<I...>) {
+        (check_val(tag_v<I>, expected), ...);
+    }
+    (std::make_index_sequence<sizeof...(T)>());
+
+    bool good = incorrect.size() == 0 && p.all_parsed();
+    if (good) {
+        fprintf(stderr, "[Success] ");
+    } else {
+        fprintf(stderr, "[Failed]  ");
+    }
+    for (auto s : p.args) {
+        fprintf(stderr, "%s ", s.data());
+    }
+    fprintf(stderr, "\n");
+
+    if (incorrect.size() > 0) {
+        fprintf(stderr, "Incorrect values for tags ");
+        for (int i : incorrect) {
+            fprintf(stderr, "%i ", i);
+        }
+        fprintf(stderr, "\n");
+    }
+    if(!p.all_parsed()) {
+        fprintf(stderr, "Unparsed args: ");
+        for(size_t i = p.num_parsed; i < p.args.size(); i++) {
+            fprintf(stderr, "\n  %s", p.args[i].data());
+        }
+        fprintf(stderr, "\n");
+    }
+    return good;
 }
 
 // Test that all the arguments were parsed
 template <class Parser, size_t... N>
-bool test(Parser& p, string_literal<N>... args) {
-    char const* arg_array[sizeof...(N) + 2]{"./test_parser", args..., nullptr};
-    return (sizeof...(N) + 1) == p.parse(sizeof...(N) + 1, arg_array);
+test_result<Parser> test(Parser p, string_literal<N>... args) {
+    char const* arg_array[sizeof...(N) + 2] {"./test_parser", args..., nullptr};
+    intptr_t num_parsed = p.parse(sizeof...(N) + 1, arg_array);
+    return {
+        std::move(p),
+        num_parsed,
+        std::vector<std::string_view>(
+            arg_array + 0, arg_array + sizeof...(N) + 1)};
 }
-}
-
+} // namespace arglet::test
