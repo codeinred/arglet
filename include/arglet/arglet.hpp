@@ -325,7 +325,7 @@ parse_value(std::string_view arg, std::string_view& value) noexcept {
     return {};
 }
 bool parse_value(std::string_view arg, std::int32_t& value) noexcept {
-    auto [end, errc] = std::from_chars(arg.begin(), arg.end(), value);
+    auto [end, errc] = std::from_chars(arg.data(), arg.data() + arg.size(), value);
     if (end == arg.end()) {
         return true;
     } else {
@@ -333,7 +333,7 @@ bool parse_value(std::string_view arg, std::int32_t& value) noexcept {
     }
 }
 bool parse_value(std::string_view arg, std::uint32_t& value) noexcept {
-    auto [end, errc] = std::from_chars(arg.begin(), arg.end(), value);
+    auto [end, errc] = std::from_chars(arg.data(), arg.data() + arg.size(), value);
     if (end == arg.end()) {
         return true;
     } else {
@@ -341,7 +341,7 @@ bool parse_value(std::string_view arg, std::uint32_t& value) noexcept {
     }
 }
 bool parse_value(std::string_view arg, std::int64_t& value) noexcept {
-    auto [end, errc] = std::from_chars(arg.begin(), arg.end(), value);
+    auto [end, errc] = std::from_chars(arg.data(), arg.data() + arg.size(), value);
     if (end == arg.end()) {
         return true;
     } else {
@@ -349,7 +349,7 @@ bool parse_value(std::string_view arg, std::int64_t& value) noexcept {
     }
 }
 bool parse_value(std::string_view arg, std::uint64_t& value) noexcept {
-    auto [end, errc] = std::from_chars(arg.begin(), arg.end(), value);
+    auto [end, errc] = std::from_chars(arg.data(), arg.data() + arg.size(), value);
     if (end == arg.end()) {
         return true;
     } else {
