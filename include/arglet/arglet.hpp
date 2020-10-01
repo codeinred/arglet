@@ -285,6 +285,7 @@ struct flag {
         return parse(argv, argv + argc) - argv;
     }
     bool& operator[](Tag) { return value; }
+    bool const& operator[](Tag) const { return value; }
     constexpr bool parse_char(char c) noexcept {
         return matcher.parse_char(c, value, true);
     }
@@ -945,7 +946,7 @@ test_result(Parser, intptr_t, std::vector<std::string_view>)
 // Test that the values parsed match the expected ones
 // goes in order of tag<0>, tag<1>, and so on
 template <class Parser, class... T>
-bool check(test_result<Parser>& p, T... expected) {
+bool check(test_result<Parser> const& p, T... expected) {
     std::vector<int> incorrect;
     auto check_val = [&](auto tag, auto& ex) {
         if (p[tag] != ex) {
