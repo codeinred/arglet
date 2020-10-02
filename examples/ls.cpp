@@ -24,10 +24,10 @@ enum class color_mode { always, never, automatic };
 enum class sort_mode { none, file_size, time, extension };
 auto parse_block_size(std::string_view arg) -> unsigned long long {
     unsigned long long value = 0;
-    auto [scan, errc] = std::from_chars(arg.begin(), arg.end(), value);
-    if (scan == arg.end()) {
+    auto [scan, errc] = std::from_chars(&*arg.begin(), &*arg.end(), value);
+    if (scan == &*arg.end()) {
         return value;
-    } else if (scan + 1 == arg.end()) {
+    } else if (scan + 1 == &*arg.end()) {
         switch (*scan) {
             case 'K': return value * std::pow(1024ull, 1);
             case 'M': return value * std::pow(1024ull, 2);
@@ -40,7 +40,7 @@ auto parse_block_size(std::string_view arg) -> unsigned long long {
         }
         throw std::logic_error(
             std::string("Unrecognized suffix in --block_size=") + arg.data());
-    } else if (scan + 2 == arg.end() && scan[1] == 'B') {
+    } else if (scan + 2 == &*arg.end() && scan[1] == 'B') {
         switch (*scan) {
             case 'K': return value * std::pow(1000ull, 1);
             case 'M': return value * std::pow(1000ull, 2);
