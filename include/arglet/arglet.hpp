@@ -491,11 +491,11 @@ struct deduce_parser {
 
 template <class T>
 struct deduce_parser<std::optional<T>> {
-    using type = std::optional<T>;
+    using type = value_parser<std::optional<T>, void, false>;
 };
 template <class T>
 struct deduce_parser<std::vector<T>> {
-    using type = std::vector<T>;
+    using type = value_parser<std::vector<T>, void, false>;
 };
 
 template <class EorF>
