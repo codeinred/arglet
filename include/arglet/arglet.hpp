@@ -533,7 +533,7 @@ struct value_flag {
     Parser parser;
 
     constexpr char const** parse(char const** begin, char const** end) {
-        if ((end - begin) >= 2 && matcher.match(begin[0])) {
+        if ((end - begin) >= 2 && matcher.matches(begin[0])) {
             if (parser.parse(begin[1])) {
                 return begin + 2;
             }
