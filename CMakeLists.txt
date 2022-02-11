@@ -73,6 +73,11 @@ install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/arglet
 
 include(helper)
 
+find_or_fetch(
+        tuplet
+        https://github.com/codeinred/tuplet.git
+        main)
+target_link_libraries(arglet INTERFACE tuplet::tuplet)
 if(PROJECT_IS_TOP_LEVEL)
     set(THREADS_PREFER_PTHREAD_FLAG ON)
     find_package(Threads REQUIRED)
@@ -81,6 +86,7 @@ if(PROJECT_IS_TOP_LEVEL)
         fmt
         https://github.com/fmtlib/fmt.git
         master)
+
 
     # TODO: Write tests
     # find_or_fetch(
