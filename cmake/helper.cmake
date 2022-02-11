@@ -181,7 +181,7 @@ endfunction()
 # If FORCE_DIAGNOSTIC_COLORS=ON, then add `-fdiagnostic-color=always` to gcc
 # and clang. I'm not sure what the option is for other compilers.
 if (FORCE_DIAGNOSTIC_COLORS)
-    note("Enabled DIagnostic Colors")
+    note("Enabled Diagnostic Colors")
     if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
         OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         add_compile_options("-fdiagnostics-color=always")
