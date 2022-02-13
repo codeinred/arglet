@@ -41,7 +41,7 @@ class array_map {
     // binary search
     constexpr size_t search(Key arg) const {
         size_t min = 0, max = N, i = N / 2;
-        while (min < max) {
+        while (max - min > 1) {
             auto cmp = arg <=> entries[i].key;
             if (cmp == 0) {
                 return i;
