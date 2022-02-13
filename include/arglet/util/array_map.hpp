@@ -1,9 +1,9 @@
 #pragma once
 #include <algorithm>
-#include <cstddef>
 #include <array>
-#include <utility>
+#include <cstddef>
 #include <type_traits>
+#include <utility>
 
 namespace arglet::util {
 template <class Key, class Value>
@@ -37,7 +37,8 @@ class array_map {
         return entries[i];
     }
 
-    // Find the index of the item lexiconographically nearest to the arg
+    // Find the index of the item lexiconographically nearest to the arg using
+    // binary search
     constexpr size_t search(Key arg) const {
         size_t min = 0, max = N, i = N / 2;
         while (min < max) {
@@ -55,18 +56,10 @@ class array_map {
         return i;
     }
 
-    entry_type* begin() noexcept {
-        return entries;
-    }
-    entry_type* end() noexcept {
-        return entries;
-    }
-    entry_type const* begin() const noexcept {
-        return entries;
-    }
-    entry_type const* end() const noexcept {
-        return entries;
-    }
+    entry_type* begin() noexcept { return entries; }
+    entry_type* end() noexcept { return entries; }
+    entry_type const* begin() const noexcept { return entries; }
+    entry_type const* end() const noexcept { return entries; }
 
     // Performs a linear search to find the best element
     template <class Func>
@@ -75,7 +68,7 @@ class array_map {
 
         size_t result = 0;
         auto best_fit = fitness(entries[0]);
-        for(size_t i = 1; i < N; i++) {
+        for (size_t i = 1; i < N; i++) {
             auto current = fitness(entries[1]);
             if (current < best_fit) {
                 best_fit = current;
@@ -85,7 +78,8 @@ class array_map {
 
         return result;
     }
+
    private:
-    entry_type entries[N] {}
+    entry_type entries[N] {};
 };
 } // namespace arglet::util
