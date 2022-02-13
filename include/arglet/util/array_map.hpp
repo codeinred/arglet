@@ -79,6 +79,18 @@ class array_map {
         return result;
     }
 
+    constexpr auto get_keys() const {
+        std::array<Key, N> keys;
+        auto it = keys.begin();
+        for(auto& elem : entries) {
+            *it++ = elem.key;
+        }
+        return keys;
+    }
+
+    constexpr static size_t size() noexcept {
+        return N;
+    }
    private:
     entry_type entries[N] {};
 };
