@@ -56,10 +56,10 @@ class array_map {
         return i;
     }
 
-    entry_type* begin() noexcept { return entries; }
-    entry_type* end() noexcept { return entries; }
-    entry_type const* begin() const noexcept { return entries; }
-    entry_type const* end() const noexcept { return entries; }
+    constexpr entry_type* begin() noexcept { return entries; }
+    constexpr entry_type* end() noexcept { return entries; }
+    constexpr entry_type const* begin() const noexcept { return entries; }
+    constexpr entry_type const* end() const noexcept { return entries; }
 
     // Performs a linear search to find the best element
     template <class Func>

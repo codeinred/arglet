@@ -21,24 +21,24 @@ flag_arg(std::array<char, NS>, std::array<string_view, NL>) -> flag_arg<NS, NL>;
 // Generic type holding a reference to a concrete flag arg
 struct any_flag_arg {
     struct vtable_t {
-        std::span<const char> (*get_short_flags)(void*);
-        std::span<const string_view> (*get_long_flags)(void*);
+        std::span<const char> (*get_short_flags)(void const*);
+        std::span<const string_view> (*get_long_flags)(void const*);
     };
-    void* pointer {};
+    void const* pointer {};
     vtable_t const* vtable {};
 
     template <class FlagArg>
     struct VTables {
         constexpr static vtable_t table {
             // get_short_flags
-            [](void* pointer) -> std::span<const char> {
+            [](void const* pointer) -> std::span<const char> {
                 FlagArg& arg = *(FlagArg*)pointer;
 
                 return {arg.short_flags.begin(), arg.short_flags.size()};
             },
 
             // get_long_flags
-            [](void* pointer) -> std::span<const string_view> {
+            [](void const* pointer) -> std::span<const string_view> {
                 FlagArg& arg = *(FlagArg*)pointer;
 
                 return {arg.long_flags.begin(), arg.long_flags.size()};
@@ -57,18 +57,18 @@ struct any_flag_arg {
     any_flag_arg& operator=(any_flag_arg&&) = default;
 
     template <class FlagArg>
-    constexpr any_flag_arg(FlagArg& arg)
+    constexpr any_flag_arg(FlagArg const& arg)
       : pointer(&arg)
       , vtable(&VTables<FlagArg>::table) {}
 
-    auto get_short_flags() { vtable->get_short_flags(pointer); }
-    auto get_long_flags() { vtable->get_long_flags(pointer); }
+    constexpr auto get_short_flags() { vtable->get_short_flags(pointer); }
+    constexpr auto get_long_flags() { vtable->get_long_flags(pointer); }
 };
 
 // Create an array_map of long flags for every flag arg in a tuple containing
 // flag args
 template <class... T>
-constexpr auto make_long_flag_map(tuplet::tuple<T...>& flags)
+constexpr auto make_long_flag_map(tuplet::tuple<T...> const& flags)
     -> util::array_map<string_view, any_flag_arg, (T::NLongFlags + ...)> {
     using map_t =
         util::array_map<string_view, any_flag_arg, (T::NLongFlags + ...)>;
@@ -88,7 +88,7 @@ constexpr auto make_long_flag_map(tuplet::tuple<T...>& flags)
 // Create an array_map of short flags for every flag in a tuple containing flag
 // args
 template <class... T>
-constexpr auto make_short_flag_map(tuplet::tuple<T...>& flags)
+constexpr auto make_short_flag_map(tuplet::tuple<T...> const& flags)
     -> util::array_map<char, any_flag_arg, (T::NShortFlags + ...)> {
     using map_t = util::array_map<char, any_flag_arg, (T::NShortFlags + ...)>;
     using entry_t = typename map_t::entry_type;

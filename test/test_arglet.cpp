@@ -7,7 +7,7 @@ TEST_CASE("Check that we can create flag maps") {
     using tuplet::tuple;
     using std::string_view_literals::operator""sv;
 
-    auto tup = tuple {
+    constexpr static auto tup = tuple {
         flag_arg<1, 1> {'d', "--dragon_fruit"},
         flag_arg<1, 1> {'v', "--version"},
         flag_arg<1, 1> {'e', "--eggplant"},
@@ -20,8 +20,8 @@ TEST_CASE("Check that we can create flag maps") {
         flag_arg<1, 0> {'g', {}},
     };
 
-    auto short_args = make_short_flag_map(tup);
-    auto long_args = make_long_flag_map(tup);
+    constexpr static auto short_args = make_short_flag_map(tup);
+    constexpr static auto long_args = make_long_flag_map(tup);
 
     REQUIRE(
         short_args.get_keys()
