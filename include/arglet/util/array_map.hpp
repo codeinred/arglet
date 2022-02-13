@@ -1,6 +1,9 @@
 #pragma once
 #include <algorithm>
 #include <cstddef>
+#include <array>
+#include <utility>
+#include <type_traits>
 
 namespace arglet::util {
 template <class Key, class Value>
@@ -18,6 +21,7 @@ struct map_entry {
 template <class Key, class Value, size_t N>
 class array_map {
    public:
+    static_assert(N >= 1, "array_map expected a size of N >= 1");
     using entry_type = map_entry<Key, Value>;
     using key_type = Key;
     using value_type = Value;
@@ -51,6 +55,36 @@ class array_map {
         return i;
     }
 
+    entry_type* begin() noexcept {
+        return entries;
+    }
+    entry_type* end() noexcept {
+        return entries;
+    }
+    entry_type const* begin() const noexcept {
+        return entries;
+    }
+    entry_type const* end() const noexcept {
+        return entries;
+    }
+
+    // Performs a linear search to find the best element
+    template <class Func>
+    constexpr size_t minimize(Func&& fitness) const {
+        using fit = std::decay_t<decltype(fitness(std::declval<Key>()))>;
+
+        size_t result = 0;
+        auto best_fit = fitness(entries[0]);
+        for(size_t i = 1; i < N; i++) {
+            auto current = fitness(entries[1]);
+            if (current < best_fit) {
+                best_fit = current;
+                result = i;
+            }
+        }
+
+        return result;
+    }
    private:
     entry_type entries[N] {}
 };
