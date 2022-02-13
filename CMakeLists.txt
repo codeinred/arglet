@@ -87,16 +87,20 @@ if(PROJECT_IS_TOP_LEVEL)
         https://github.com/fmtlib/fmt.git
         master)
 
-
-    # TODO: Write tests
-    # find_or_fetch(
-    #     Catch2
-    #     https://github.com/catchorg/catch2.git
-    #     devel
-    #     3.0.0)
+    find_or_fetch(
+        Catch2
+        https://github.com/catchorg/catch2.git
+        devel
+        3.0.0)
 
     FetchContent_MakeAvailable(${remote_dependencies})
 
+    add_executable(test_arglet
+        test/test_arglet.cpp)
+    target_link_libraries(test_arglet PRIVATE
+        arglet::arglet
+        fmt::fmt
+        Catch2::Catch2WithMain)
     add_source_dir(
         examples # the name of the directory
         arglet::arglet # Libraries to link against
@@ -104,12 +108,11 @@ if(PROJECT_IS_TOP_LEVEL)
 
     # Append places where Catch2 might be to the CMake Module path, so we can
     # use the function catch_discover_tests
-    # TODO: Write tests
-    # list(APPEND CMAKE_MODULE_PATH ${CMAKE_INSTALL_PREFIX}/lib/cmake/Catch2)
-    # list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
-    # include(CTest)
-    # include(Catch)
-    # catch_discover_tests(...)
+    list(APPEND CMAKE_MODULE_PATH ${CMAKE_INSTALL_PREFIX}/lib/cmake/Catch2)
+    list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+    include(CTest)
+    include(Catch)
+    catch_discover_tests(test_arglet)
 endif()
 
 
